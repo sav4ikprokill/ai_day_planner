@@ -1,0 +1,18 @@
+{
+  "name": "@ai-planner/bot-js",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node src/bot.js",
+    "build": "echo \"bot-js has no build step yet\"",
+    "typecheck": "echo \"skip\""
+  },
+  "dependencies": {
+    "@ai-planner/contracts": "workspace:*",
+    "axios": "^1.8.0",
+    "dotenv": "^16.4.0",
+    "node-telegram-bot-api": "^0.66.0",
+    "zod": "^4.0.0"
+  }
+}
