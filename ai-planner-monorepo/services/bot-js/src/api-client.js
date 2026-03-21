@@ -1,10 +1,10 @@
 import axios from "axios";
+import { config } from "./config.js";
 import {
   ApiErrorSchema,
   TaskResponseSchema,
   TextCommandRequestSchema,
-} from "@ai-planner/contracts";
-import { config } from "./config.js";
+} from "./schemas.js";
 
 const api = axios.create({
   baseURL: config.apiBaseUrl,
@@ -44,7 +44,7 @@ export async function createTaskFromText(text) {
 
 export async function getTasks() {
   try {
-    const response = await api.get("/tasks");
+    const response = await api.get("/tasks/");
     return response.data.map((task) => TaskResponseSchema.parse(task));
   } catch (error) {
     throw new Error(formatApiError(error));

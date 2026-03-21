@@ -9,38 +9,38 @@ router = APIRouter(prefix="/tasks", tags=["Tasks"])
 
 
 @router.post("/", response_model=TaskResponse)
-def create_task_endpoint(
+async def create_task_endpoint(
     task_data: TaskCreate,
     db: DBSession,
 ) -> TaskResponse:
     service = TaskService(db)
-    task = service.create(task_data)
+    task = await service.create(task_data)
     return TaskResponse.model_validate(task)
 
 
 @router.post("/parse", response_model=TaskResponse)
-def create_task_from_text_endpoint(
+async def create_task_from_text_endpoint(
     request: TextCommandRequest,
     db: DBSession,
 ) -> TaskResponse:
     service = TaskService(db)
-    task = service.create_from_text(request.text)
+    task = await service.create_from_text(request.text)
     return TaskResponse.model_validate(task)
 
 
 @router.get("/", response_model=list[TaskResponse])
-def get_tasks_endpoint(db: DBSession) -> list[TaskResponse]:
+async def get_tasks_endpoint(db: DBSession) -> list[TaskResponse]:
     service = TaskService(db)
-    tasks = service.list_all()
+    tasks = await service.list_all()
     return [TaskResponse.model_validate(task) for task in tasks]
 
 
 @router.patch("/{task_id}/status", response_model=TaskResponse)
-def update_task_status_endpoint(
+async def update_task_status_endpoint(
     task_id: int,
     payload: TaskStatusUpdate,
     db: DBSession,
 ) -> TaskResponse:
     service = TaskService(db)
-    task = service.update_status(task_id, payload)
+    task = await service.update_status(task_id, payload)
     return TaskResponse.model_validate(task)

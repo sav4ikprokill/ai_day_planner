@@ -15,6 +15,13 @@ export const TaskResponseSchema = z.object({
   source: TaskSourceSchema,
 });
 
+export const HabitCreateSchema = z.object({
+  category: z.string().min(1).max(100),
+  preferred_time: z.string(),
+});
+
+
+
 export const HabitResponseSchema = z.object({
   id: z.number().int().positive(),
   category: z.string().min(1).max(100),
@@ -29,6 +36,16 @@ export const TaskStatusUpdateSchema = z.object({
   status: TaskStatusSchema,
 });
 
+export const ApiValidationErrorSchema = z.object({
+  loc: z.array(z.union([z.string(), z.number()])),
+  msg: z.string(),
+  type: z.string(),
+});
+
+export const ApiErrorSchema = z.object({
+  detail: z.union([z.string(), z.array(ApiValidationErrorSchema)]),
+});
+
 export type TaskResponse = z.infer<typeof TaskResponseSchema>;
 export type HabitResponse = z.infer<typeof HabitResponseSchema>;
 export type TextCommandRequest = z.infer<typeof TextCommandRequestSchema>;
@@ -36,3 +53,4 @@ export type TaskStatusUpdate = z.infer<typeof TaskStatusUpdateSchema>;
 export type TaskStatus = z.infer<typeof TaskStatusSchema>;
 export type TaskPriority = z.infer<typeof TaskPrioritySchema>;
 export type TaskSource = z.infer<typeof TaskSourceSchema>;
+export type HabitCreate = z.infer<typeof HabitCreateSchema>;

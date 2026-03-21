@@ -1,9 +1,9 @@
 from datetime import date, datetime, timedelta
 
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Task, TaskSource, TaskStatus
+from app.db.models import Job, Task, TaskSource, TaskStatus
 from app.repositories.habit_repository import HabitRepository
 from app.repositories.task_repository import TaskRepository
 from app.schemas.task import TaskCreate, TaskStatusUpdate
@@ -17,12 +17,13 @@ DEFAULT_TASK_DURATION = 30
 class TaskService:
     """Бизнес-логика задач и планирования."""
 
-    def __init__(self, db: Session) -> None:
+    def __init__(self, db: AsyncSession) -> None:
+        self.db = db
         self.task_repository = TaskRepository(db)
         self.habit_repository = HabitRepository(db)
 
-    def _build_scheduled_datetime(self, category: str) -> datetime | None:
-        habit = self.habit_repository.get_by_category(category)
+    async def _build_scheduled_datetime(self, category: str) -> datetime | None:
+        habit = await self.habit_repository.get_by_category(category)
         if not habit:
             return None
 
@@ -40,11 +41,11 @@ class TaskService:
             return None
         return task.scheduled_at + timedelta(minutes=task.duration_minutes)
 
-    def _has_conflict(self, scheduled_at: datetime, duration_minutes: int) -> bool:
+    async def _has_conflict(self, scheduled_at: datetime, duration_minutes: int) -> bool:
         new_start = scheduled_at
         new_end = scheduled_at + timedelta(minutes=duration_minutes)
 
-        for task in self.task_repository.list_scheduled():
+        for task in await self.task_repository.list_scheduled():
             existing_start = task.scheduled_at
             existing_end = self._get_task_end(task)
 
@@ -56,26 +57,26 @@ class TaskService:
 
         return False
 
-    def _find_next_free_slot(
+    async def _find_next_free_slot(
         self,
         scheduled_at: datetime,
         duration_minutes: int,
-    ) -> datetime:
+        ) -> datetime:
         candidate = scheduled_at
 
-        while self._has_conflict(candidate, duration_minutes):
+        while await self._has_conflict(candidate, duration_minutes):
             candidate += timedelta(minutes=SLOT_STEP_MINUTES)
 
         return candidate
 
-    def create(self, task_data: TaskCreate) -> Task:
+    async def create(self, task_data: TaskCreate) -> Task:
         scheduled_at = task_data.scheduled_at
 
         if scheduled_at is None:
-            scheduled_at = self._build_scheduled_datetime(task_data.category)
+            scheduled_at = await self._build_scheduled_datetime(task_data.category)
 
         if scheduled_at is not None:
-            scheduled_at = self._find_next_free_slot(
+            scheduled_at = await self._find_next_free_slot(
                 scheduled_at=scheduled_at,
                 duration_minutes=task_data.duration_minutes,
             )
@@ -89,9 +90,27 @@ class TaskService:
             priority=task_data.priority,
             source=task_data.source,
         )
-        return self.task_repository.save(task)
+        try:
+            await self.task_repository.save(task, commit=False)
 
-    def create_from_text(self, text: str) -> Task:
+            job = Job(
+                task_type="send_notification",
+                payload={
+                    "task_id": task.id,
+                    "message": "New task created!",
+                },
+                status="pending",
+            )
+            self.db.add(job)
+
+            await self.db.commit()
+            await self.db.refresh(task)
+            return task
+        except Exception:
+            await self.db.rollback()
+            raise
+
+    async def create_from_text(self, text: str) -> Task:
         parsed = parse_task_command(text)
 
         task_data = TaskCreate(
@@ -101,15 +120,15 @@ class TaskService:
             duration_minutes=DEFAULT_TASK_DURATION,
             source=TaskSource.TEXT,
         )
-        return self.create(task_data)
+        return await self.create(task_data)
 
-    def list_all(self) -> list[Task]:
-        return self.task_repository.list_all()
+    async def list_all(self) -> list[Task]:
+        return await self.task_repository.list_all()
 
-    def update_status(self, task_id: int, payload: TaskStatusUpdate) -> Task:
-        task = self.task_repository.get_by_id(task_id)
+    async def update_status(self, task_id: int, payload: TaskStatusUpdate) -> Task:
+        task = await self.task_repository.get_by_id(task_id)
         if not task:
             raise HTTPException(status_code=404, detail="Task not found")
 
         task.status = payload.status
-        return self.task_repository.save(task)
+        return await self.task_repository.save(task)

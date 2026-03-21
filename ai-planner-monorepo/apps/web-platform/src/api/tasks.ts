@@ -6,7 +6,7 @@ import {
 import { apiClient } from "./client";
 
 export async function fetchTasks() {
-  const response = await apiClient.get("/tasks");
+  const response = await apiClient.get("/tasks/");
   return response.data.map((task: unknown) => TaskResponseSchema.parse(task));
 }
 

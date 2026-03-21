@@ -1,55 +1,99 @@
-# 🤖 AI Planner Monorepo
-> **Интеллектуальная экосистема для управления личной продуктивностью.**
+# AI Day Planner
 
-[![Стек: Polyglot](https://img.shields.io)]()
-[![Монорепозиторий: pnpm](https://img.shields.io)]()
-[![Сборка: Turborepo](https://img.shields.io)]()
-[![Лицензия: MIT](https://img.shields.io)]()
+Минимально рабочая версия проекта сейчас состоит из двух основных частей:
 
-Это комплексная платформа для умного планирования дня. Система не просто хранит список дел, а анализирует ваш контекст, привычки и автоматически оптимизирует расписание с помощью алгоритмов на базе AI.
+- `api-python`: FastAPI + SQLite backend для задач и привычек
+- `web-platform`: React + Vite frontend для просмотра задач, быстрого добавления и управления привычками
 
----
+Дополнительно в репозитории есть:
 
-## 🎯 Ключевые возможности
-*   **NLP Парсинг**: Создание задач из обычного текста («Завтра в 10 утра тренировка»).
-*   **Habit-Aware Scheduling**: Автоматический подбор времени с учетом ваших регулярных привычек.
-*   **Разрешение конфликтов**: Умная проверка пересечений в расписании и поиск свободных слотов.
-*   **Кроссплатформенность**: Единое ядро для Web, Mobile и Telegram.
-*   **Type-Safe Core**: Общие контракты данных между всеми сервисами через Zod.
+- `bot-js`: Telegram-бот, который можно запустить отдельно после указания реального токена
+- `miniapp-ts`: черновой scaffold без полноценного runtime
+- `packages/contracts`: общие Zod-схемы
+- `packages/db-ts`: отдельная Postgres/Drizzle-заготовка, не участвующая в минимальном запуске
 
----
+## Что реально работает сейчас
 
-## 🏗 Архитектура системы (Polyglot)
+Минимальный конвейер:
 
-Проект спроектирован как **Polyglot Monorepo**. Каждый язык программирования выбран под конкретную задачу:
+1. `web-platform` отправляет запросы в `api-python`
+2. `api-python` обрабатывает `/tasks/parse`, `/tasks/`, `/habits/`
+3. данные сохраняются в SQLite-файл `planner.db`
+4. frontend отображает сохранённые задачи и привычки
 
+## Быстрый запуск через Docker Compose
 
-| Слой | Технологии | Роль |
-| :--- | :--- | :--- |
-| **Core API** | `Python (FastAPI)` | Бизнес-логика, планировщик и обработка AI |
-| **Web Platform** | `React + TS + Emotion` | Панель управления (Dashboard) и аналитика |
-| **Mobile** | `Flutter` | Кроссплатформенное приложение |
-| **Real-time** | `Go` | Воркеры для напоминаний и очередей задач |
-| **Optimizer** | `C++` | Низкоуровневое ядро для сложных расчетов графиков |
-| **Bot** | `Node.js (JS)` | Интерфейс взаимодействия в Telegram |
-| **Admin** | `Django` | Внутренняя панель управления данными |
+Из корня проекта:
 
----
+```powershell
+docker compose up --build
+```
 
-## 📁 Структура репозитория
+После запуска:
+
+- frontend: [http://localhost:5173](http://localhost:5173)
+- backend: [http://localhost:8000](http://localhost:8000)
+
+## Локальный запуск без Docker
+
+### Backend
+
+Рабочая директория:
 
 ```text
-ai-planner-monorepo/
-├── apps/               # Клиентские интерфейсы
-│   ├── web-platform    # React Dashboard (Vite)
-│   └── mobile-flutter  # Мобильное приложение
-├── services/           # Backend-микросервисы
-│   ├── api-python      # Ядро на FastAPI
-│   ├── bot-js          # Telegram-бот
-│   ├── worker-go       # Фоновые напоминания
-│   └── reports-java    # Сервис генерации отчетов
-├── packages/           # Общие модули
-│   ├── contracts       # Схемы Zod и общие типы (TS)
-│   └── db-ts           # Миграции и типизация БД
-└── libs/
-    └── scheduler-cpp   # Движок оптимизации расписания
+ai-planner-monorepo/services/api-python
+```
+
+Команды:
+
+```powershell
+Copy-Item .env.example .env
+C:\Users\bital\OneDrive\Desktop\ai_day_planner\.venv\Scripts\pip.exe install -r requirements.txt
+C:\Users\bital\OneDrive\Desktop\ai_day_planner\.venv\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+### Frontend
+
+Рабочая директория:
+
+```text
+ai-planner-monorepo
+```
+
+Команды:
+
+```powershell
+Copy-Item .\apps\web-platform\.env.example .\apps\web-platform\.env
+corepack enable
+pnpm install
+pnpm --filter @ai-planner/web-platform dev
+```
+
+## Bot
+
+Рабочая директория:
+
+```text
+ai-planner-monorepo/services/bot-js
+```
+
+Команды:
+
+```powershell
+Copy-Item .env.example .env
+node src/bot.js
+```
+
+Для запуска нужен реальный `TELEGRAM_BOT_TOKEN`.
+
+## Статус частей проекта
+
+- `api-python`: рабочая минимальная реализация
+- `web-platform`: рабочая минимальная реализация
+- `bot-js`: рабочий при наличии Telegram токена и доступного backend
+- `miniapp-ts`: незавершённое
+- `mobile-flutter`: незавершённое
+- `admin-django`: незавершённое
+- `worker-go`: незавершённое
+- `reports-java`: незавершённое
+- `scheduler-cpp`: незавершённое

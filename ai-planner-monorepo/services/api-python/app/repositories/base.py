@@ -1,6 +1,6 @@
 from typing import Generic, TypeVar
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 ModelT = TypeVar("ModelT")
@@ -9,12 +9,15 @@ ModelT = TypeVar("ModelT")
 class BaseRepository(Generic[ModelT]):
     """Базовый репозиторий с общей логикой сохранения."""
 
-    def __init__(self, db: Session) -> None:
+    def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    def save(self, obj: ModelT) -> ModelT:
+    async def save(self, obj: ModelT, *, commit: bool = True) -> ModelT:
         """Сохраняет объект в БД и возвращает обновлённую сущность."""
         self.db.add(obj)
-        self.db.commit()
-        self.db.refresh(obj)
+        if commit:
+            await self.db.commit()
+            await self.db.refresh(obj)
+        else:
+            await self.db.flush()
         return obj

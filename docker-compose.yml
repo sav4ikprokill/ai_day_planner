@@ -1,10 +1,32 @@
 version: "3.9"
 
 services:
-  app:
-    build: .
-    container_name: ai_day_planner_app
+  api-python:
+    build:
+      context: ./ai-planner-monorepo/services/api-python
+      dockerfile: Dockerfile
+    container_name: ai_day_planner_api
+    environment:
+      APP_NAME: AI Day Planner
+      DATABASE_URL: sqlite:///./planner.db
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
     ports:
       - "8000:8000"
     volumes:
-      - .:/app
+      - ./ai-planner-monorepo/services/api-python:/app
+
+  web-platform:
+    build:
+      context: ./ai-planner-monorepo
+      dockerfile: ./apps/web-platform/Dockerfile
+    container_name: ai_day_planner_web
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+    depends_on:
+      - api-python
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./ai-planner-monorepo:/workspace
+      - /workspace/node_modules
+      - /workspace/apps/web-platform/node_modules

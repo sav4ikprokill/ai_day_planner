@@ -1,17 +1,12 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import settings
 
-# Для SQLite нужен special arg check_same_thread=False,
-# иначе соединение может падать при работе FastAPI.
-engine = create_engine(
-    settings.database_url,
-    connect_args={"check_same_thread": False},
-)
+engine = create_async_engine(settings.database_url, future=True)
 
-SessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
+SessionLocal = async_sessionmaker(
     bind=engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autoflush=False,
 )
