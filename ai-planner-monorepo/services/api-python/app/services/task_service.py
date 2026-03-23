@@ -22,8 +22,8 @@ class TaskService:
         self.task_repository = TaskRepository(db)
         self.habit_repository = HabitRepository(db)
 
-    async def _build_scheduled_datetime(self, category: str) -> datetime | None:
-        habit = await self.habit_repository.get_by_category(category)
+    async def _build_scheduled_datetime(self, category: str, user_id: int) -> datetime | None:
+        habit = await self.habit_repository.get_by_category(category, user_id)
         if not habit:
             return None
 
@@ -41,11 +41,11 @@ class TaskService:
             return None
         return task.scheduled_at + timedelta(minutes=task.duration_minutes)
 
-    async def _has_conflict(self, scheduled_at: datetime, duration_minutes: int) -> bool:
+    async def _has_conflict(self, scheduled_at: datetime, duration_minutes: int, user_id: int) -> bool:
         new_start = scheduled_at
         new_end = scheduled_at + timedelta(minutes=duration_minutes)
 
-        for task in await self.task_repository.list_scheduled():
+        for task in await self.task_repository.list_scheduled(user_id):
             existing_start = task.scheduled_at
             existing_end = self._get_task_end(task)
 
@@ -61,27 +61,30 @@ class TaskService:
         self,
         scheduled_at: datetime,
         duration_minutes: int,
+        user_id: int,
         ) -> datetime:
         candidate = scheduled_at
 
-        while await self._has_conflict(candidate, duration_minutes):
+        while await self._has_conflict(candidate, duration_minutes, user_id):
             candidate += timedelta(minutes=SLOT_STEP_MINUTES)
 
         return candidate
 
-    async def create(self, task_data: TaskCreate) -> Task:
+    async def create(self, task_data: TaskCreate, user_id: int) -> Task:
         scheduled_at = task_data.scheduled_at
 
         if scheduled_at is None:
-            scheduled_at = await self._build_scheduled_datetime(task_data.category)
+            scheduled_at = await self._build_scheduled_datetime(task_data.category, user_id)
 
         if scheduled_at is not None:
             scheduled_at = await self._find_next_free_slot(
                 scheduled_at=scheduled_at,
                 duration_minutes=task_data.duration_minutes,
+                user_id=user_id,
             )
 
         task = Task(
+            user_id=user_id,
             title=task_data.title,
             category=task_data.category,
             scheduled_at=scheduled_at,
@@ -97,6 +100,7 @@ class TaskService:
                 task_type="send_notification",
                 payload={
                     "task_id": task.id,
+                    "chat_id": user_id,
                     "message": "New task created!",
                 },
                 status="pending",
@@ -110,7 +114,7 @@ class TaskService:
             await self.db.rollback()
             raise
 
-    async def create_from_text(self, text: str) -> Task:
+    async def create_from_text(self, text: str, user_id: int) -> Task:
         parsed = parse_task_command(text)
 
         task_data = TaskCreate(
@@ -120,13 +124,13 @@ class TaskService:
             duration_minutes=DEFAULT_TASK_DURATION,
             source=TaskSource.TEXT,
         )
-        return await self.create(task_data)
+        return await self.create(task_data, user_id)
 
-    async def list_all(self) -> list[Task]:
-        return await self.task_repository.list_all()
+    async def list_all(self, user_id: int) -> list[Task]:
+        return await self.task_repository.list_all(user_id)
 
-    async def update_status(self, task_id: int, payload: TaskStatusUpdate) -> Task:
-        task = await self.task_repository.get_by_id(task_id)
+    async def update_status(self, task_id: int, payload: TaskStatusUpdate, user_id: int) -> Task:
+        task = await self.task_repository.get_by_id(task_id, user_id)
         if not task:
             raise HTTPException(status_code=404, detail="Task not found")
 

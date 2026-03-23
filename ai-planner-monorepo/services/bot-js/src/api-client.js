@@ -1,5 +1,6 @@
 import axios from "axios";
 import { config } from "./config.js";
+import { createTelegramInitData } from "./auth.js";
 import {
   ApiErrorSchema,
   TaskResponseSchema,
@@ -31,10 +32,21 @@ function formatApiError(error) {
   return error.message || "Неизвестная ошибка";
 }
 
-export async function createTaskFromText(text) {
+function buildHeaders(telegramUser) {
+  return {
+    "X-Telegram-Init-Data": createTelegramInitData(
+      telegramUser,
+      config.telegramToken,
+    ),
+  };
+}
+
+export async function createTaskFromText(text, telegramUser) {
   try {
     const payload = TextCommandRequestSchema.parse({ text });
-    const response = await api.post("/tasks/parse", payload);
+    const response = await api.post("/tasks/parse", payload, {
+      headers: buildHeaders(telegramUser),
+    });
 
     return TaskResponseSchema.parse(response.data);
   } catch (error) {
@@ -42,9 +54,11 @@ export async function createTaskFromText(text) {
   }
 }
 
-export async function getTasks() {
+export async function getTasks(telegramUser) {
   try {
-    const response = await api.get("/tasks/");
+    const response = await api.get("/tasks/", {
+      headers: buildHeaders(telegramUser),
+    });
     return response.data.map((task) => TaskResponseSchema.parse(task));
   } catch (error) {
     throw new Error(formatApiError(error));

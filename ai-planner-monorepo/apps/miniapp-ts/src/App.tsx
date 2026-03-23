@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
+import type { TaskResponse } from "@ai-planner/contracts";
 import {
-  TaskResponseSchema,
-  TextCommandRequestSchema,
-  type TaskResponse,
-} from "@ai-planner/contracts";
-
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
+  createTaskFromText,
+  fetchTasks,
+  isTelegramWebAppAvailable,
+} from "./api-client";
 
 const shellStyle: React.CSSProperties = {
   maxWidth: 560,
@@ -42,42 +41,12 @@ const inputStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
-async function fetchTasks() {
-  const response = await fetch(`${apiBaseUrl}/tasks/`);
-
-  if (!response.ok) {
-    throw new Error("Failed to load tasks");
-  }
-
-  const data: unknown = await response.json();
-  return Array.isArray(data)
-    ? data.map((task) => TaskResponseSchema.parse(task))
-    : [];
-}
-
-async function createTaskFromText(text: string) {
-  const payload = TextCommandRequestSchema.parse({ text });
-  const response = await fetch(`${apiBaseUrl}/tasks/parse`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    throw new Error("Failed to create task");
-  }
-
-  const data: unknown = await response.json();
-  return TaskResponseSchema.parse(data);
-}
-
 export function App() {
   const [tasks, setTasks] = useState<TaskResponse[]>([]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [isTelegramEnv] = useState(isTelegramWebAppAvailable());
 
   async function loadTasks() {
     try {
@@ -127,6 +96,11 @@ export function App() {
         <p style={{ marginTop: 0, color: "#475569" }}>
           Упрощённый мобильный интерфейс для быстрого добавления задач.
         </p>
+        {!isTelegramEnv && (
+          <p style={{ marginTop: 0, color: "#b45309" }}>
+            Режим разработки: Telegram initData не найден, используется dev fallback.
+          </p>
+        )}
 
         <section style={cardStyle}>
           <form onSubmit={handleSubmit}>

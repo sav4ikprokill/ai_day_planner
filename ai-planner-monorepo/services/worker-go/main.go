@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
@@ -25,6 +28,11 @@ type Job struct {
 	Status   string
 }
 
+type NotificationPayload struct {
+	ChatID  int64  `json:"chat_id"`
+	Message string `json:"message"`
+}
+
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
@@ -38,6 +46,11 @@ func main() {
 	if databaseURL == "" {
 		logger.Error("DATABASE_URL is required")
 		os.Exit(1)
+	}
+
+	telegramBotToken := os.Getenv("TELEGRAM_BOT_TOKEN")
+	if telegramBotToken == "" {
+		logger.Warn("TELEGRAM_BOT_TOKEN is not set, Telegram notifications will be skipped")
 	}
 
 	pollDelay := loadPollDelay()
@@ -54,7 +67,7 @@ func main() {
 
 	logger.Info("worker started", "poll_delay", pollDelay.String())
 
-	if err := runWorker(ctx, pool, logger, pollDelay); err != nil && !errors.Is(err, context.Canceled) {
+	if err := runWorker(ctx, pool, logger, pollDelay, telegramBotToken); err != nil && !errors.Is(err, context.Canceled) {
 		logger.Error("worker stopped with error", "error", err)
 		os.Exit(1)
 	}
@@ -93,6 +106,7 @@ func runWorker(
 	pool *pgxpool.Pool,
 	logger *slog.Logger,
 	pollDelay time.Duration,
+	telegramBotToken string,
 ) error {
 	for {
 		select {
@@ -120,7 +134,7 @@ func runWorker(
 
 		logger.Info("claimed job", "job_id", job.ID, "task_name", job.TaskName)
 
-		processErr := processJob(job, logger)
+		processErr := processJob(job, logger, telegramBotToken)
 		finalizeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 
 		if processErr != nil {
@@ -173,7 +187,7 @@ RETURNING id, task_type AS task_name, payload, status;
 	return job, nil
 }
 
-func processJob(job Job, logger *slog.Logger) error {
+func processJob(job Job, logger *slog.Logger, telegramBotToken string) error {
 	payload := map[string]any{}
 	if len(job.Payload) > 0 {
 		if err := json.Unmarshal(job.Payload, &payload); err != nil {
@@ -188,11 +202,71 @@ func processJob(job Job, logger *slog.Logger) error {
 		time.Sleep(2 * time.Second)
 		logger.Info("report generated", "job_id", job.ID)
 	case "send_notification":
-		time.Sleep(1 * time.Second)
-		logger.Info("notification sent", "job_id", job.ID)
+		var notificationPayload NotificationPayload
+		if err := json.Unmarshal(job.Payload, &notificationPayload); err != nil {
+			return fmt.Errorf("failed to decode notification payload: %w", err)
+		}
+
+		if notificationPayload.ChatID == 0 {
+			return errors.New("notification payload has invalid chat_id")
+		}
+
+		if notificationPayload.Message == "" {
+			return errors.New("notification payload has empty message")
+		}
+
+		if telegramBotToken == "" {
+			logger.Warn(
+				"skipping Telegram notification because TELEGRAM_BOT_TOKEN is not configured",
+				"job_id", job.ID,
+				"chat_id", notificationPayload.ChatID,
+			)
+			return nil
+		}
+
+		if err := sendTelegramMessage(telegramBotToken, notificationPayload.ChatID, notificationPayload.Message); err != nil {
+			return fmt.Errorf("failed to send Telegram message: %w", err)
+		}
+
+		logger.Info("notification sent", "job_id", job.ID, "chat_id", notificationPayload.ChatID)
 	default:
 		time.Sleep(500 * time.Millisecond)
 		logger.Info("generic job processed", "job_id", job.ID)
+	}
+
+	return nil
+}
+
+func sendTelegramMessage(token string, chatID int64, text string) error {
+	requestBody := map[string]any{
+		"chat_id": chatID,
+		"text":    text,
+	}
+
+	body, err := json.Marshal(requestBody)
+	if err != nil {
+		return err
+	}
+
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", token)
+	request, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := client.Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("telegram API returned status %d", response.StatusCode)
 	}
 
 	return nil

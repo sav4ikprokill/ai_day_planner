@@ -1,9 +1,9 @@
 from datetime import datetime, time
 from enum import Enum
 
-from sqlalchemy import DateTime, Enum as SqlEnum, Integer, String, Time, func
+from sqlalchemy import JSON, BigInteger, DateTime, Enum as SqlEnum, ForeignKey, Integer, String, Time, func
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.mixins import IdMixin, TimestampMixin
@@ -27,11 +27,35 @@ class TaskSource(str, Enum):
     VOICE = "voice"
 
 
+class User(Base):
+    """Пользователь, авторизованный через Telegram."""
+
+    __tablename__ = "users"
+
+    telegram_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, index=True)
+    username: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    first_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    tasks: Mapped[list["Task"]] = relationship(back_populates="user")
+    habits: Mapped[list["Habit"]] = relationship(back_populates="user")
+
+
 class Task(Base, IdMixin, TimestampMixin):
     """Модель задачи."""
 
     __tablename__ = "tasks"
 
+    user_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("users.telegram_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     category: Mapped[str] = mapped_column(String(100), default="general")
     scheduled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -52,14 +76,24 @@ class Task(Base, IdMixin, TimestampMixin):
         nullable=False,
     )
 
+    user: Mapped[User] = relationship(back_populates="tasks")
+
 
 class Habit(Base, IdMixin, TimestampMixin):
     """Модель привычки с рекомендуемым временем."""
 
     __tablename__ = "habits"
 
-    category: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    user_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("users.telegram_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    category: Mapped[str] = mapped_column(String(100), nullable=False)
     preferred_time: Mapped[time] = mapped_column(Time, nullable=False)
+
+    user: Mapped[User] = relationship(back_populates="habits")
 
 
 class Job(Base, IdMixin):
@@ -68,7 +102,11 @@ class Job(Base, IdMixin):
     __tablename__ = "jobs"
 
     task_type: Mapped[str] = mapped_column(String(100), nullable=False)
-    payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False, default=dict)
+    payload: Mapped[dict[str, object]] = mapped_column(
+        JSON().with_variant(JSONB, "postgresql"),
+        nullable=False,
+        default=dict,
+    )
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

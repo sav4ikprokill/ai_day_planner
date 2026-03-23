@@ -14,6 +14,17 @@ class TaskCreate(BaseModel):
     source: TaskSource = TaskSource.MANUAL
 
 
+class TaskParseRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=500)
+
+
+class TaskParsedData(BaseModel):
+    title: str = Field(..., min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=1000)
+    priority: int = Field(default=1, ge=1, le=3)
+    due_date: datetime | None = None
+
+
 class TaskStatusUpdate(BaseModel):
     status: TaskStatus
 

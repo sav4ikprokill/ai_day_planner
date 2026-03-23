@@ -25,6 +25,8 @@ class Settings(BaseModel):
             "postgresql+asyncpg://user:password@localhost:5432/ai_planner",
         ),
     )
+    gemini_api_key: str | None = Field(default_factory=lambda: os.getenv("GEMINI_API_KEY"))
+    telegram_bot_token: str | None = Field(default_factory=lambda: os.getenv("TELEGRAM_BOT_TOKEN"))
     cors_origins: list[str] = Field(
         default_factory=lambda: _parse_cors_origins(os.getenv("CORS_ORIGINS")),
     )

@@ -7,3 +7,16 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+interface TelegramWebApp {
+  initData: string;
+  initDataUnsafe: unknown;
+  ready: () => void;
+  expand: () => void;
+}
+
+interface Window {
+  Telegram?: {
+    WebApp: TelegramWebApp;
+  };
+}

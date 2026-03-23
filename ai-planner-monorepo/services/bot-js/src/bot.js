@@ -27,7 +27,7 @@ bot.onText(/\/start/, async (msg) => {
 
 bot.onText(/\/tasks/, async (msg) => {
   try {
-    const tasks = await getTasks();
+    const tasks = await getTasks(msg.from);
 
     if (!tasks.length) {
       await bot.sendMessage(msg.chat.id, "Задач пока нет.");
@@ -57,7 +57,7 @@ bot.on("message", async (msg) => {
   }
 
   try {
-    const task = await createTaskFromText(text);
+    const task = await createTaskFromText(text, msg.from);
 
     await bot.sendMessage(
       msg.chat.id,
