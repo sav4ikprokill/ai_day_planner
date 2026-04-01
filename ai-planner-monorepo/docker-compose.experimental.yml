@@ -1,0 +1,19 @@
+services:
+  reports-java:
+    build:
+      context: ./experimental/reports-java
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/ai_planner
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+  scheduler-cpp:
+    build:
+      context: ./experimental/scheduler-cpp
+      dockerfile: Dockerfile
+
+networks:
+  default:
+    external: true
+    name: ai-planner-monorepo_default
