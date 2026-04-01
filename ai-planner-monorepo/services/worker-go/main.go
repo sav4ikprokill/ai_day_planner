@@ -1,16 +1,16 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/http"
+	"net/smtp"
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -29,8 +29,15 @@ type Job struct {
 }
 
 type NotificationPayload struct {
-	ChatID  int64  `json:"chat_id"`
+	Email   string `json:"email"`
 	Message string `json:"message"`
+}
+
+type SMTPConfig struct {
+	Host string
+	Port string
+	User string
+	Pass string
 }
 
 func main() {
@@ -48,9 +55,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	telegramBotToken := os.Getenv("TELEGRAM_BOT_TOKEN")
-	if telegramBotToken == "" {
-		logger.Warn("TELEGRAM_BOT_TOKEN is not set, Telegram notifications will be skipped")
+	smtpConfig := SMTPConfig{
+		Host: os.Getenv("SMTP_HOST"),
+		Port: os.Getenv("SMTP_PORT"),
+		User: os.Getenv("SMTP_USER"),
+		Pass: os.Getenv("SMTP_PASS"),
+	}
+	if !smtpConfig.IsConfigured() {
+		logger.Warn("SMTP credentials are not fully configured, email notifications will be simulated")
 	}
 
 	pollDelay := loadPollDelay()
@@ -67,7 +79,7 @@ func main() {
 
 	logger.Info("worker started", "poll_delay", pollDelay.String())
 
-	if err := runWorker(ctx, pool, logger, pollDelay, telegramBotToken); err != nil && !errors.Is(err, context.Canceled) {
+	if err := runWorker(ctx, pool, logger, pollDelay, smtpConfig); err != nil && !errors.Is(err, context.Canceled) {
 		logger.Error("worker stopped with error", "error", err)
 		os.Exit(1)
 	}
@@ -106,7 +118,7 @@ func runWorker(
 	pool *pgxpool.Pool,
 	logger *slog.Logger,
 	pollDelay time.Duration,
-	telegramBotToken string,
+	smtpConfig SMTPConfig,
 ) error {
 	for {
 		select {
@@ -134,7 +146,7 @@ func runWorker(
 
 		logger.Info("claimed job", "job_id", job.ID, "task_name", job.TaskName)
 
-		processErr := processJob(job, logger, telegramBotToken)
+		processErr := processJob(job, logger, smtpConfig)
 		finalizeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 
 		if processErr != nil {
@@ -165,6 +177,7 @@ WHERE id = (
     SELECT id
     FROM jobs
     WHERE status = 'pending'
+      AND task_type = 'send_notification'
     ORDER BY created_at ASC
     FOR UPDATE SKIP LOCKED
     LIMIT 1
@@ -187,7 +200,7 @@ RETURNING id, task_type AS task_name, payload, status;
 	return job, nil
 }
 
-func processJob(job Job, logger *slog.Logger, telegramBotToken string) error {
+func processJob(job Job, logger *slog.Logger, smtpConfig SMTPConfig) error {
 	payload := map[string]any{}
 	if len(job.Payload) > 0 {
 		if err := json.Unmarshal(job.Payload, &payload); err != nil {
@@ -207,28 +220,35 @@ func processJob(job Job, logger *slog.Logger, telegramBotToken string) error {
 			return fmt.Errorf("failed to decode notification payload: %w", err)
 		}
 
-		if notificationPayload.ChatID == 0 {
-			return errors.New("notification payload has invalid chat_id")
+		if strings.TrimSpace(notificationPayload.Email) == "" {
+			return errors.New("notification payload has empty email")
 		}
 
 		if notificationPayload.Message == "" {
 			return errors.New("notification payload has empty message")
 		}
 
-		if telegramBotToken == "" {
+		if !smtpConfig.IsConfigured() {
 			logger.Warn(
-				"skipping Telegram notification because TELEGRAM_BOT_TOKEN is not configured",
+				"simulating email notification because SMTP credentials are not configured",
 				"job_id", job.ID,
-				"chat_id", notificationPayload.ChatID,
+				"email", notificationPayload.Email,
 			)
 			return nil
 		}
 
-		if err := sendTelegramMessage(telegramBotToken, notificationPayload.ChatID, notificationPayload.Message); err != nil {
-			return fmt.Errorf("failed to send Telegram message: %w", err)
+		if err := sendEmailNotification(
+			smtpConfig.Host,
+			smtpConfig.Port,
+			smtpConfig.User,
+			smtpConfig.Pass,
+			notificationPayload.Email,
+			notificationPayload.Message,
+		); err != nil {
+			return fmt.Errorf("failed to send email notification: %w", err)
 		}
 
-		logger.Info("notification sent", "job_id", job.ID, "chat_id", notificationPayload.ChatID)
+		logger.Info("notification sent", "job_id", job.ID, "email", notificationPayload.Email)
 	default:
 		time.Sleep(500 * time.Millisecond)
 		logger.Info("generic job processed", "job_id", job.ID)
@@ -237,39 +257,29 @@ func processJob(job Job, logger *slog.Logger, telegramBotToken string) error {
 	return nil
 }
 
-func sendTelegramMessage(token string, chatID int64, text string) error {
-	requestBody := map[string]any{
-		"chat_id": chatID,
-		"text":    text,
-	}
+func sendEmailNotification(host, port, user, pass, to, message string) error {
+	auth := smtp.PlainAuth("", user, pass, host)
+	subject := "Subject: New Task Scheduled\r\n"
+	fromHeader := fmt.Sprintf("From: %s\r\n", user)
+	toHeader := fmt.Sprintf("To: %s\r\n", to)
+	mimeHeader := "MIME-Version: 1.0\r\nContent-Type: text/plain; charset=\"UTF-8\"\r\n"
 
-	body, err := json.Marshal(requestBody)
-	if err != nil {
-		return err
-	}
+	body := fromHeader + toHeader + subject + mimeHeader + "\r\n" + message
 
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
+	return smtp.SendMail(
+		host+":"+port,
+		auth,
+		user,
+		[]string{to},
+		[]byte(body),
+	)
+}
 
-	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", token)
-	request, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
-	if err != nil {
-		return err
-	}
-	request.Header.Set("Content-Type", "application/json")
-
-	response, err := client.Do(request)
-	if err != nil {
-		return err
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("telegram API returned status %d", response.StatusCode)
-	}
-
-	return nil
+func (config SMTPConfig) IsConfigured() bool {
+	return strings.TrimSpace(config.Host) != "" &&
+		strings.TrimSpace(config.Port) != "" &&
+		strings.TrimSpace(config.User) != "" &&
+		strings.TrimSpace(config.Pass) != ""
 }
 
 func markJobCompleted(ctx context.Context, pool *pgxpool.Pool, jobID int64) error {
