@@ -33,3 +33,8 @@ app.include_router(habits_router)
 @app.get("/")
 def root() -> dict[str, str]:
     return {"message": "AI Day Planner API is running"}
+
+
+@app.get("/health")
+async def health() -> dict[str, str]:
+    return {"status": "ok"}
