@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.db.models import Task
 from app.repositories.base import BaseRepository
@@ -27,3 +27,22 @@ class TaskRepository(BaseRepository[Task]):
         )
         result = await self.db.scalars(stmt)
         return result.first()
+
+    async def delete(self, task_id: int, user_id: int) -> bool:
+        task = await self.get_by_id(task_id, user_id)
+        if not task:
+            return False
+
+        await self.db.delete(task)
+        await self.db.commit()
+        return True
+
+    async def update(self, task_id: int, user_id: int, data: dict[str, object]) -> Task | None:
+        task = await self.get_by_id(task_id, user_id)
+        if not task:
+            return None
+
+        for field, value in data.items():
+            setattr(task, field, value)
+
+        return await self.save(task)

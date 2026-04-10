@@ -28,6 +28,21 @@ TIME_OF_DAY_MAP = {
 }
 
 
+WEEKDAY_MAP = {
+    "понедельник": 0,
+    "вторник": 1,
+    "среду": 2,
+    "среда": 2,
+    "четверг": 3,
+    "пятницу": 4,
+    "пятница": 4,
+    "субботу": 5,
+    "суббота": 5,
+    "воскресенье": 6,
+    "воскресеньӗ": 6,
+}
+
+
 def detect_category(text: str) -> str:
     """Определяет категорию задачи по ключевым словам."""
     lowered = text.lower()
@@ -70,23 +85,55 @@ def detect_title(text: str, category: str) -> str:
     return category
 
 
+def _next_weekday(base: datetime, weekday: int) -> datetime:
+    delta_days = (weekday - base.weekday()) % 7
+    if delta_days == 0:
+        delta_days = 7
+    return base + timedelta(days=delta_days)
+
+
 def detect_datetime(text: str) -> datetime | None:
     """
     Извлекает дату и время из простых шаблонов:
     - завтра
+    - послезавтра
     - сегодня
+    - через N часов
     - в HH:MM
     - утром / вечером / днем / ночью
+    - в N вечера / утра / дня
+    - в понедельник / во вторник / ...
+    - на следующей неделе
     """
     lowered = text.lower()
     now = datetime.now()
 
+    if "через " in lowered:
+        hours_match = re.search(r"через\s+(\d+)\s+час", lowered)
+        if hours_match:
+            return now + timedelta(hours=int(hours_match.group(1)))
+
     base_date = now.date()
 
-    if "завтра" in lowered:
+    if "послезавтра" in lowered:
+        base_date = (now + timedelta(days=2)).date()
+    elif "завтра" in lowered:
         base_date = (now + timedelta(days=1)).date()
     elif "сегодня" in lowered:
         base_date = now.date()
+    elif "на следующей неделе" in lowered:
+        return datetime.combine(
+            (now + timedelta(days=7)).date(),
+            datetime.min.time(),
+        ).replace(hour=9, minute=0)
+    else:
+        weekday_match = re.search(
+            r"\b(?:в|во)\s+(понедельник|вторник|среду|среда|четверг|пятницу|пятница|субботу|суббота|воскресенье)\b",
+            lowered,
+        )
+        if weekday_match:
+            next_date = _next_weekday(now, WEEKDAY_MAP[weekday_match.group(1)])
+            base_date = next_date.date()
 
     explicit_time_match = re.search(r"\b(?:в\s*)?(\d{1,2}):(\d{2})\b", lowered)
     if explicit_time_match:
@@ -98,6 +145,22 @@ def detect_datetime(text: str) -> datetime | None:
                 base_date,
                 datetime.min.time(),
             ).replace(hour=hour, minute=minute)
+
+    named_hour_match = re.search(r"\bв\s+(\d{1,2})\s+(вечера|утра|дня)\b", lowered)
+    if named_hour_match:
+        hour = int(named_hour_match.group(1))
+        period = named_hour_match.group(2)
+
+        if period == "вечера" and 1 <= hour <= 11:
+            hour += 12
+        elif period == "дня" and 1 <= hour <= 11:
+            hour += 12
+
+        if 0 <= hour <= 23:
+            return datetime.combine(
+                base_date,
+                datetime.min.time(),
+            ).replace(hour=hour, minute=0)
 
     for phrase, hour in TIME_OF_DAY_MAP.items():
         if phrase in lowered:

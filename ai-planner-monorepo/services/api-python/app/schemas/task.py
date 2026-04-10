@@ -29,6 +29,14 @@ class TaskStatusUpdate(BaseModel):
     status: TaskStatus
 
 
+class TaskUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    category: str | None = Field(default=None, min_length=1, max_length=100)
+    scheduled_at: datetime | None = None
+    duration_minutes: int | None = Field(default=None, ge=1, le=1440)
+    priority: TaskPriority | None = None
+
+
 class TaskResponse(BaseModel):
     id: int
     title: str
@@ -40,3 +48,19 @@ class TaskResponse(BaseModel):
     source: TaskSource
 
     model_config = {"from_attributes": True}
+
+
+class TaskOptimizedResponse(BaseModel):
+    id: int
+    title: str
+    priority: int = Field(default=1, ge=1, le=3)
+
+
+class TaskStatsResponse(BaseModel):
+    total_tasks: int
+    completed_tasks: int
+    completion_rate: float
+    tasks_today: int
+    completed_today: int
+    top_category: str | None
+    current_streak: int
