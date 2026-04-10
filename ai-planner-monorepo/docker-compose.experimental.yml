@@ -4,9 +4,9 @@ services:
       context: ./experimental/reports-java
       dockerfile: Dockerfile
     environment:
-      DATABASE_URL: jdbc:postgresql://postgres:5432/ai_planner
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      DATABASE_URL: jdbc:postgresql://postgres/planner
+      POSTGRES_USER: planner
+      POSTGRES_PASSWORD: planner
 
   scheduler-cpp:
     build:

@@ -2,13 +2,13 @@ services:
   postgres:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: ai_planner
+      POSTGRES_USER: planner
+      POSTGRES_PASSWORD: planner
+      POSTGRES_DB: planner
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d ai_planner"]
+      test: ["CMD-SHELL", "pg_isready -U planner -d planner"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -22,7 +22,7 @@ services:
     env_file:
       - ./services/api-python/.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/ai_planner
+      DATABASE_URL: postgresql+asyncpg://planner:planner@postgres/planner
       CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
     depends_on:
       postgres:
@@ -42,10 +42,28 @@ services:
     env_file:
       - ./services/worker-go/.env
     environment:
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/ai_planner?sslmode=disable
+      DATABASE_URL: postgresql://planner:planner@postgres/planner
     depends_on:
       api:
         condition: service_healthy
+
+  web-platform:
+    build:
+      context: ./apps/web-platform
+      dockerfile: Dockerfile
+    environment:
+      VITE_API_BASE_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5173 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    ports:
+      - "5173:5173"
 
 volumes:
   postgres_data:
