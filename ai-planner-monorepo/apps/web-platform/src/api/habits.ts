@@ -2,13 +2,15 @@ import {
   HabitCreateSchema,
   HabitResponseSchema,
 } from "@ai-planner/contracts";
+import {
+  createHabit as createHabitRequest,
+  getHabits,
+} from "@ai-planner/api-client";
 import { apiClient } from "./client";
 
 export async function fetchHabits() {
-  const response = await apiClient.get("/habits/");
-  return response.data.map((habit: unknown) =>
-    HabitResponseSchema.parse(habit),
-  );
+  const data = await getHabits(apiClient);
+  return data.map((habit) => HabitResponseSchema.parse(habit));
 }
 
 export async function createHabit(category: string, preferredTime: string) {
@@ -17,6 +19,6 @@ export async function createHabit(category: string, preferredTime: string) {
     preferred_time: preferredTime,
   });
 
-  const response = await apiClient.post("/habits/", payload);
-  return HabitResponseSchema.parse(response.data);
+  const habit = await createHabitRequest(apiClient, payload);
+  return HabitResponseSchema.parse(habit);
 }

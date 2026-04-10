@@ -1,52 +1,71 @@
+import type { TaskResponse } from "@ai-planner/contracts";
 import {
-  TaskResponseSchema,
-  TextCommandRequestSchema,
-  type TaskResponse,
-} from "@ai-planner/contracts";
+  createApiClient,
+  getOptimizedTasks as getOptimizedTasksRequest,
+  getTasks,
+  parseTask,
+  type OptimizedTask,
+} from "@ai-planner/api-client";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
 const mockInitData = "dev-mode-init-data";
+const mockInitDataStorageKey = "mock_init_data";
+const mockUserNameStorageKey = "mock_user_name";
+const apiClient = createApiClient(apiBaseUrl, () => getAuthInitData() ?? "");
 
-function getTelegramInitData(): string {
-  const initData = window.Telegram?.WebApp?.initData;
-  return initData && initData.length > 0 ? initData : mockInitData;
+function getStoredMockInitData(): string | null {
+  try {
+    return window.localStorage.getItem(mockInitDataStorageKey);
+  } catch {
+    return null;
+  }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const headers = new Headers(init?.headers);
-  headers.set("X-Telegram-Init-Data", getTelegramInitData());
-
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    ...init,
-    headers,
-  });
-
-  if (!response.ok) {
-    throw new Error(`Request failed with status ${response.status}`);
+export function getAuthInitData(): string | null {
+  const initData = window.Telegram?.WebApp?.initData;
+  if (initData && initData.length > 0) {
+    return initData;
   }
 
-  return response.json() as Promise<T>;
+  return getStoredMockInitData();
 }
 
 export function isTelegramWebAppAvailable(): boolean {
   return Boolean(window.Telegram?.WebApp?.initData);
 }
 
+export function isAuthenticated(): boolean {
+  return Boolean(getAuthInitData());
+}
+
+export function getStoredDisplayName(): string | null {
+  try {
+    return window.localStorage.getItem(mockUserNameStorageKey);
+  } catch {
+    return null;
+  }
+}
+
+export function enableStandaloneDevAuth(name: string): void {
+  const trimmedName = name.trim();
+
+  window.localStorage.setItem(mockInitDataStorageKey, mockInitData);
+  window.localStorage.setItem(
+    mockUserNameStorageKey,
+    trimmedName || "Локальный пользователь",
+  );
+}
+
 export async function fetchTasks(): Promise<TaskResponse[]> {
-  const data = await request<unknown[]>("/tasks/");
-  return Array.isArray(data)
-    ? data.map((task) => TaskResponseSchema.parse(task))
-    : [];
+  return getTasks(apiClient);
 }
 
 export async function createTaskFromText(text: string): Promise<TaskResponse> {
-  const payload = TextCommandRequestSchema.parse({ text });
-  const data = await request<unknown>("/tasks/parse", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-  return TaskResponseSchema.parse(data);
+  return parseTask(apiClient, text);
 }
+
+export async function getOptimizedTasks(): Promise<OptimizedTask[]> {
+  return getOptimizedTasksRequest(apiClient);
+}
+
+export type { OptimizedTask };

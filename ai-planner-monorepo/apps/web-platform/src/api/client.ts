@@ -1,11 +1,6 @@
-import axios from "axios";
+import { createApiClient } from "@ai-planner/api-client";
 
 const DEFAULT_API_BASE_URL = "http://127.0.0.1:8000";
-
-export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL,
-  timeout: 5000,
-});
 
 function getTelegramInitData(): string {
   const mockInitData = window.localStorage.getItem("mock_init_data");
@@ -26,7 +21,7 @@ function getTelegramInitData(): string {
   return telegramInitData ?? "";
 }
 
-apiClient.interceptors.request.use((config) => {
-  config.headers.set("X-Telegram-Init-Data", getTelegramInitData());
-  return config;
-});
+export const apiClient = createApiClient(
+  import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL,
+  getTelegramInitData,
+);
