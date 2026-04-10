@@ -47,6 +47,18 @@ services:
       api:
         condition: service_healthy
 
+  bot-js:
+    build:
+      context: .
+      dockerfile: ./services/bot-js/Dockerfile
+    env_file:
+      - ./services/bot-js/.env
+    environment:
+      API_BASE_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+
   web-platform:
     build:
       context: ./apps/web-platform

@@ -1,3 +1,4 @@
+import http from "node:http";
 import TelegramBot from "node-telegram-bot-api";
 import { config } from "./config.js";
 import { createTaskFromText, getTasks } from "./api-client.js";
@@ -76,4 +77,40 @@ bot.on("message", async (msg) => {
       `Не удалось создать задачу: ${error.message}`,
     );
   }
+});
+
+const server = http.createServer(async (request, response) => {
+  if (request.method !== "POST" || request.url !== "/notify") {
+    response.statusCode = 404;
+    response.end("Not found");
+    return;
+  }
+
+  try {
+    const body = await new Promise((resolve, reject) => {
+      const chunks = [];
+      request.on("data", (chunk) => chunks.push(chunk));
+      request.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+      request.on("error", reject);
+    });
+
+    const payload = JSON.parse(body);
+    if (!payload.telegram_id || !payload.message) {
+      response.statusCode = 400;
+      response.end("Invalid payload");
+      return;
+    }
+
+    await bot.sendMessage(payload.telegram_id, payload.message);
+    response.statusCode = 204;
+    response.end();
+  } catch (error) {
+    console.error("Failed to handle /notify:", error);
+    response.statusCode = 500;
+    response.end("Failed to notify");
+  }
+});
+
+server.listen(3001, "0.0.0.0", () => {
+  console.log("Bot notify endpoint listening on 0.0.0.0:3001");
 });

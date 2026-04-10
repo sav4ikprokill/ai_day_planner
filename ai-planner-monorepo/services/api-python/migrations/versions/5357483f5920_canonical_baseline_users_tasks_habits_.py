@@ -58,7 +58,7 @@ def upgrade() -> None:
     sa.Column('duration_minutes', sa.Integer(), nullable=False),
     sa.Column('status', sa.Enum('PLANNED', 'DONE', 'CANCELLED', name='task_status'), nullable=False),
     sa.Column('priority', sa.Enum('LOW', 'MEDIUM', 'HIGH', name='task_priority'), nullable=False),
-    sa.Column('source', sa.Enum('MANUAL', 'TEXT', 'VOICE', name='task_source'), nullable=False),
+    sa.Column('source', sa.Enum('MANUAL', 'TEXT', 'VOICE', 'HABIT', name='task_source'), nullable=False),
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['users.telegram_id'], ondelete='CASCADE'),

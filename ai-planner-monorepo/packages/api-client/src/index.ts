@@ -47,7 +47,7 @@ export async function createTask(
     scheduled_at?: string | null;
     duration_minutes?: number;
     priority?: "low" | "medium" | "high";
-    source?: "manual" | "text" | "voice";
+    source?: "manual" | "text" | "voice" | "habit";
   },
 ): Promise<TaskResponse> {
   const response = await client.post<TaskResponse>("/tasks/", payload);

@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"net/smtp"
 	"os"
 	"os/signal"
@@ -19,7 +21,10 @@ import (
 	"github.com/joho/godotenv"
 )
 
-const defaultPollDelay = 2 * time.Second
+const (
+	defaultPollDelay   = 2 * time.Second
+	defaultBotNotifyURL = "http://bot-js:3001/notify"
+)
 
 type Job struct {
 	ID       int64
@@ -33,11 +38,22 @@ type NotificationPayload struct {
 	Message string `json:"message"`
 }
 
+type TelegramNotificationPayload struct {
+	TelegramID int64  `json:"telegram_id"`
+	Message    string `json:"message"`
+}
+
 type SMTPConfig struct {
 	Host string
 	Port string
 	User string
 	Pass string
+}
+
+type Habit struct {
+	UserID        int64
+	Category      string
+	PreferredTime time.Time
 }
 
 func main() {
@@ -65,6 +81,11 @@ func main() {
 		logger.Warn("SMTP credentials are not fully configured, email notifications will be simulated")
 	}
 
+	botNotifyURL := os.Getenv("BOT_NOTIFY_URL")
+	if strings.TrimSpace(botNotifyURL) == "" {
+		botNotifyURL = defaultBotNotifyURL
+	}
+
 	pollDelay := loadPollDelay()
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -78,8 +99,9 @@ func main() {
 	defer pool.Close()
 
 	logger.Info("worker started", "poll_delay", pollDelay.String())
+	go runHabitScheduler(ctx, pool, logger)
 
-	if err := runWorker(ctx, pool, logger, pollDelay, smtpConfig); err != nil && !errors.Is(err, context.Canceled) {
+	if err := runWorker(ctx, pool, logger, pollDelay, smtpConfig, botNotifyURL); err != nil && !errors.Is(err, context.Canceled) {
 		logger.Error("worker stopped with error", "error", err)
 		os.Exit(1)
 	}
@@ -119,6 +141,7 @@ func runWorker(
 	logger *slog.Logger,
 	pollDelay time.Duration,
 	smtpConfig SMTPConfig,
+	botNotifyURL string,
 ) error {
 	for {
 		select {
@@ -146,7 +169,7 @@ func runWorker(
 
 		logger.Info("claimed job", "job_id", job.ID, "task_name", job.TaskName)
 
-		processErr := processJob(job, logger, smtpConfig)
+		processErr := processJob(job, logger, smtpConfig, botNotifyURL)
 		finalizeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 
 		if processErr != nil {
@@ -177,7 +200,7 @@ WHERE id = (
     SELECT id
     FROM jobs
     WHERE status = 'pending'
-      AND task_type = 'send_notification'
+      AND task_type IN ('send_notification', 'send_telegram_notification')
     ORDER BY created_at ASC
     FOR UPDATE SKIP LOCKED
     LIMIT 1
@@ -200,7 +223,7 @@ RETURNING id, task_type AS task_name, payload, status;
 	return job, nil
 }
 
-func processJob(job Job, logger *slog.Logger, smtpConfig SMTPConfig) error {
+func processJob(job Job, logger *slog.Logger, smtpConfig SMTPConfig, botNotifyURL string) error {
 	payload := map[string]any{}
 	if len(job.Payload) > 0 {
 		if err := json.Unmarshal(job.Payload, &payload); err != nil {
@@ -211,9 +234,6 @@ func processJob(job Job, logger *slog.Logger, smtpConfig SMTPConfig) error {
 	logger.Info("processing job", "job_id", job.ID, "task_name", job.TaskName, "payload", payload)
 
 	switch job.TaskName {
-	case "generate_report":
-		time.Sleep(2 * time.Second)
-		logger.Info("report generated", "job_id", job.ID)
 	case "send_notification":
 		var notificationPayload NotificationPayload
 		if err := json.Unmarshal(job.Payload, &notificationPayload); err != nil {
@@ -249,6 +269,25 @@ func processJob(job Job, logger *slog.Logger, smtpConfig SMTPConfig) error {
 		}
 
 		logger.Info("notification sent", "job_id", job.ID, "email", notificationPayload.Email)
+	case "send_telegram_notification":
+		var notificationPayload TelegramNotificationPayload
+		if err := json.Unmarshal(job.Payload, &notificationPayload); err != nil {
+			return fmt.Errorf("failed to decode telegram notification payload: %w", err)
+		}
+
+		if notificationPayload.TelegramID == 0 {
+			return errors.New("telegram notification payload has empty telegram_id")
+		}
+
+		if notificationPayload.Message == "" {
+			return errors.New("telegram notification payload has empty message")
+		}
+
+		if err := sendTelegramNotification(botNotifyURL, notificationPayload); err != nil {
+			return fmt.Errorf("failed to send telegram notification: %w", err)
+		}
+
+		logger.Info("telegram notification sent", "job_id", job.ID, "telegram_id", notificationPayload.TelegramID)
 	default:
 		time.Sleep(500 * time.Millisecond)
 		logger.Info("generic job processed", "job_id", job.ID)
@@ -275,6 +314,32 @@ func sendEmailNotification(host, port, user, pass, to, message string) error {
 	)
 }
 
+func sendTelegramNotification(botNotifyURL string, payload TelegramNotificationPayload) error {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	request, err := http.NewRequest(http.MethodPost, botNotifyURL, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := client.Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return fmt.Errorf("bot notify endpoint returned status %d", response.StatusCode)
+	}
+
+	return nil
+}
+
 func (config SMTPConfig) IsConfigured() bool {
 	return strings.TrimSpace(config.Host) != "" &&
 		strings.TrimSpace(config.Port) != "" &&
@@ -299,6 +364,132 @@ WHERE id = $1;
 
 	_, err := pool.Exec(ctx, query, jobID, status)
 	return err
+}
+
+func runHabitScheduler(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) {
+	for {
+		waitDuration := durationUntilNextHabitRun(time.Now())
+		logger.Info("habit scheduler sleeping", "wait", waitDuration.String())
+		if err := sleepWithContext(ctx, waitDuration); err != nil {
+			return
+		}
+
+		runCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		if err := createHabitTasks(runCtx, pool, logger); err != nil && !errors.Is(err, context.Canceled) {
+			logger.Error("habit scheduler failed", "error", err)
+		}
+		cancel()
+	}
+}
+
+func durationUntilNextHabitRun(now time.Time) time.Duration {
+	nextRun := time.Date(now.Year(), now.Month(), now.Day(), 0, 5, 0, 0, now.Location())
+	if !now.Before(nextRun) {
+		nextRun = nextRun.Add(24 * time.Hour)
+	}
+	return nextRun.Sub(now)
+}
+
+func createHabitTasks(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) error {
+	habits, err := loadHabits(ctx, pool)
+	if err != nil {
+		return err
+	}
+
+	for _, habit := range habits {
+		exists, err := hasHabitTaskToday(ctx, pool, habit.UserID, habit.Category)
+		if err != nil {
+			return err
+		}
+		if exists {
+			continue
+		}
+
+		scheduledAt := time.Date(
+			time.Now().Year(),
+			time.Now().Month(),
+			time.Now().Day(),
+			habit.PreferredTime.Hour(),
+			habit.PreferredTime.Minute(),
+			0,
+			0,
+			time.Now().Location(),
+		)
+
+		taskID, err := insertHabitTask(ctx, pool, habit, scheduledAt)
+		if err != nil {
+			return err
+		}
+
+		logger.Info(
+			"created recurring habit task",
+			"task_id", taskID,
+			"user_id", habit.UserID,
+			"category", habit.Category,
+		)
+	}
+
+	return nil
+}
+
+func loadHabits(ctx context.Context, pool *pgxpool.Pool) ([]Habit, error) {
+	const query = `
+SELECT user_id, category, preferred_time
+FROM habits
+ORDER BY id ASC;
+`
+
+	rows, err := pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	habits := make([]Habit, 0)
+	for rows.Next() {
+		var habit Habit
+		if err := rows.Scan(&habit.UserID, &habit.Category, &habit.PreferredTime); err != nil {
+			return nil, err
+		}
+		habits = append(habits, habit)
+	}
+
+	return habits, rows.Err()
+}
+
+func hasHabitTaskToday(ctx context.Context, pool *pgxpool.Pool, userID int64, category string) (bool, error) {
+	const query = `
+SELECT EXISTS(
+    SELECT 1
+    FROM tasks
+    WHERE user_id = $1
+      AND category = $2
+      AND DATE(scheduled_at) = CURRENT_DATE
+);
+`
+
+	var exists bool
+	err := pool.QueryRow(ctx, query, userID, category).Scan(&exists)
+	return exists, err
+}
+
+func insertHabitTask(ctx context.Context, pool *pgxpool.Pool, habit Habit, scheduledAt time.Time) (int64, error) {
+	const query = `
+INSERT INTO tasks (user_id, title, category, scheduled_at, duration_minutes, status, priority, source, created_at)
+VALUES ($1, $2, $3, $4, 30, 'PLANNED', 'MEDIUM', 'HABIT', NOW())
+RETURNING id;
+`
+
+	var taskID int64
+	err := pool.QueryRow(
+		ctx,
+		query,
+		habit.UserID,
+		fmt.Sprintf("Привычка: %s", habit.Category),
+		habit.Category,
+		scheduledAt,
+	).Scan(&taskID)
+	return taskID, err
 }
 
 func sleepWithContext(ctx context.Context, delay time.Duration) error {

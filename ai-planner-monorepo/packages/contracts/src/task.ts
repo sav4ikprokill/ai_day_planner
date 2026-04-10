@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const TaskStatusSchema = z.enum(["planned", "done", "cancelled"]);
 export const TaskPrioritySchema = z.enum(["low", "medium", "high"]);
-export const TaskSourceSchema = z.enum(["manual", "text", "voice"]);
+export const TaskSourceSchema = z.enum(["manual", "text", "voice", "habit"]);
 
 export const TaskResponseSchema = z.object({
   id: z.number().int().positive(),

@@ -25,6 +25,7 @@ class TaskSource(str, Enum):
     MANUAL = "manual"
     TEXT = "text"
     VOICE = "voice"
+    HABIT = "habit"
 
 
 class User(Base):
@@ -35,6 +36,7 @@ class User(Base):
     telegram_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, index=True)
     username: Mapped[str | None] = mapped_column(String(255), nullable=True)
     first_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

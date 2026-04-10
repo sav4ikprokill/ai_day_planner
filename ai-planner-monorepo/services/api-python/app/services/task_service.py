@@ -117,15 +117,26 @@ class TaskService:
         try:
             await self.task_repository.save(task, commit=False)
 
-            job = Job(
-                task_type="send_notification",
-                payload={
-                    "task_id": task.id,
-                    "email": self._resolve_notification_email(user_email),
-                    "message": f"New task created: {task.title}",
-                },
-                status="pending",
-            )
+            if settings.telegram_bot_token:
+                job = Job(
+                    task_type="send_telegram_notification",
+                    payload={
+                        "task_id": task.id,
+                        "telegram_id": user_id,
+                        "message": f"New task created: {task.title}",
+                    },
+                    status="pending",
+                )
+            else:
+                job = Job(
+                    task_type="send_notification",
+                    payload={
+                        "task_id": task.id,
+                        "email": self._resolve_notification_email(user_email),
+                        "message": f"New task created: {task.title}",
+                    },
+                    status="pending",
+                )
             self.db.add(job)
 
             await self.db.commit()
