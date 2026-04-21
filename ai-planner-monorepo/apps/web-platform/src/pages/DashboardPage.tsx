@@ -159,7 +159,7 @@ export function DashboardPage() {
   return (
     <Stack>
       <Hero>
-        <Eyebrow>AI Planner Platform</Eyebrow>
+        <Eyebrow>Платформа AI Planner</Eyebrow>
         <HeroTitle>Спокойный фокус на дне, а не на хаосе.</HeroTitle>
         <HeroText>
           Главный экран показывает, что важно сейчас: общий ритм задач, быстрый
@@ -187,7 +187,7 @@ export function DashboardPage() {
       </StatsGrid>
 
       <QuickAddCard>
-        <CardTitle>Quick Add</CardTitle>
+        <CardTitle>Быстрое добавление</CardTitle>
         <CardText>
           Напиши задачу обычной фразой. Например: «добавь тренировку завтра в
           19:00».
@@ -206,7 +206,7 @@ export function DashboardPage() {
 
       <Columns>
         <Card>
-          <CardTitle>Today</CardTitle>
+          <CardTitle>Сегодня</CardTitle>
           {loading && <div>Загрузка...</div>}
           {error && <div>{error}</div>}
           {!loading && !error && (
@@ -219,7 +219,7 @@ export function DashboardPage() {
         </Card>
 
         <Card>
-          <CardTitle>Upcoming</CardTitle>
+          <CardTitle>Скоро</CardTitle>
           {loading && <div>Загрузка...</div>}
           {error && <div>{error}</div>}
           {!loading && !error && (
@@ -233,7 +233,7 @@ export function DashboardPage() {
       </Columns>
 
       <Card>
-        <CardTitle>Recent Done</CardTitle>
+        <CardTitle>Недавно выполнено</CardTitle>
         {loading && <div>Загрузка...</div>}
         {error && <div>{error}</div>}
         {!loading && !error && (

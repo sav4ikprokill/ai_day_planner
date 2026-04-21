@@ -112,7 +112,7 @@ export function HabitsPage() {
           <Input
             value={category}
             onChange={(event) => setCategory(event.target.value)}
-            placeholder="Например: sport"
+            placeholder="Например: спорт"
           />
 
           <Input
@@ -128,7 +128,7 @@ export function HabitsPage() {
       </FormCard>
 
       <Card>
-        <CardTitle>Habits</CardTitle>
+        <CardTitle>Привычки</CardTitle>
 
         {loading && <EmptyState>Загрузка...</EmptyState>}
         {error && <EmptyState>{error}</EmptyState>}

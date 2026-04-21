@@ -73,6 +73,36 @@ type Props = {
   onStatusChange?: (taskId: number, status: TaskStatus) => void;
 };
 
+function getStatusLabel(status: TaskStatus): string {
+  if (status === "done") {
+    return "Выполнено";
+  }
+  if (status === "cancelled") {
+    return "Отменено";
+  }
+  return "Запланировано";
+}
+
+function getPriorityLabel(priority: TaskResponse["priority"]): string {
+  if (priority === "high") {
+    return "Высокий";
+  }
+  if (priority === "medium") {
+    return "Средний";
+  }
+  return "Низкий";
+}
+
+function getSourceLabel(source: TaskResponse["source"]): string {
+  if (source === "manual") {
+    return "вручную";
+  }
+  if (source === "voice") {
+    return "голос";
+  }
+  return "текст";
+}
+
 export function TaskList({
   tasks,
   emptyText = "Задач пока нет.",
@@ -88,28 +118,28 @@ export function TaskList({
         <Item key={task.id}>
           <Top>
             <Title>{task.title}</Title>
-            <StatusBadge status={task.status}>{task.status}</StatusBadge>
+            <StatusBadge status={task.status}>{getStatusLabel(task.status)}</StatusBadge>
           </Top>
 
           <Meta>
-            category: {task.category} | time: {task.scheduled_at ?? "без времени"} | priority: {task.priority} | source: {task.source}
+            категория: {task.category} | время: {task.scheduled_at ?? "без времени"} | приоритет: {getPriorityLabel(task.priority)} | источник: {getSourceLabel(task.source)}
           </Meta>
 
           {onStatusChange && (
             <Actions>
               {task.status !== "planned" && (
                 <ActionButton onClick={() => onStatusChange(task.id, "planned")}>
-                  Planned
+                  Запланировать
                 </ActionButton>
               )}
               {task.status !== "done" && (
                 <ActionButton onClick={() => onStatusChange(task.id, "done")}>
-                  Done
+                  Выполнено
                 </ActionButton>
               )}
               {task.status !== "cancelled" && (
                 <ActionButton onClick={() => onStatusChange(task.id, "cancelled")}>
-                  Cancel
+                  Отменить
                 </ActionButton>
               )}
             </Actions>

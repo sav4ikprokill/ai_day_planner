@@ -32,10 +32,22 @@ async def get_current_user(
             detail="X-Telegram-Init-Data header is required",
         )
 
-    user_payload = validate_telegram_data(
-        init_data=x_telegram_init_data,
-        bot_token=settings.telegram_bot_token or "",
-    )
+    if (
+        x_telegram_init_data == "dev-mode-init-data"
+        and settings.allow_dev_init_data_bypass
+        and settings.env == "development"
+    ):
+        user_payload = {
+            "id": 7777777,
+            "username": "dev_local_user",
+            "first_name": "Dev",
+            "email": "dev_local_user@example.com",
+        }
+    else:
+        user_payload = validate_telegram_data(
+            init_data=x_telegram_init_data,
+            bot_token=settings.telegram_bot_token or "",
+        )
     telegram_id = int(user_payload["id"])
 
     result = await session.scalars(
@@ -48,6 +60,7 @@ async def get_current_user(
             telegram_id=telegram_id,
             username=user_payload.get("username"),
             first_name=user_payload.get("first_name"),
+            email=user_payload.get("email"),
         )
         session.add(user)
         await session.commit()
@@ -56,6 +69,7 @@ async def get_current_user(
 
     user.username = user_payload.get("username")
     user.first_name = user_payload.get("first_name")
+    user.email = user_payload.get("email") or user.email
     await session.commit()
     await session.refresh(user)
     return user

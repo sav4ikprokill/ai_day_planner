@@ -39,7 +39,7 @@ export function TasksPage() {
 
   return (
     <Card>
-      <CardTitle>Tasks</CardTitle>
+      <CardTitle>Задачи</CardTitle>
 
       <FilterRow>
         <FilterButton active={filter === "all"} onClick={() => setFilter("all")}>
@@ -49,16 +49,16 @@ export function TasksPage() {
           active={filter === "planned"}
           onClick={() => setFilter("planned")}
         >
-          Planned
+          Запланированные
         </FilterButton>
         <FilterButton active={filter === "done"} onClick={() => setFilter("done")}>
-          Done
+          Выполненные
         </FilterButton>
         <FilterButton
           active={filter === "cancelled"}
           onClick={() => setFilter("cancelled")}
         >
-          Cancelled
+          Отменённые
         </FilterButton>
       </FilterRow>
 

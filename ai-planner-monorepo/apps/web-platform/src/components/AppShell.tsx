@@ -76,9 +76,9 @@ export function AppShell() {
         </Subtitle>
 
         <Nav>
-          <NavItem to="/">Dashboard</NavItem>
-          <NavItem to="/tasks">Tasks</NavItem>
-          <NavItem to="/habits">Habits</NavItem>
+          <NavItem to="/">Обзор</NavItem>
+          <NavItem to="/tasks">Задачи</NavItem>
+          <NavItem to="/habits">Привычки</NavItem>
         </Nav>
       </Sidebar>
 

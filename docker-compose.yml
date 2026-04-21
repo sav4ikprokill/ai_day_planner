@@ -1,6 +1,23 @@
-version: "3.9"
-
 services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: ai_day_planner_postgres
+    environment:
+      POSTGRES_USER: planner
+      POSTGRES_PASSWORD: planner
+      POSTGRES_DB: planner
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U planner"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - default
+
   api-python:
     build:
       context: ./ai-planner-monorepo/services/api-python
@@ -8,12 +25,33 @@ services:
     container_name: ai_day_planner_api
     environment:
       APP_NAME: AI Day Planner
-      DATABASE_URL: sqlite:///./planner.db
+      DATABASE_URL: postgresql+asyncpg://planner:planner@postgres/planner
       CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
     ports:
       - "8000:8000"
-    volumes:
-      - ./ai-planner-monorepo/services/api-python:/app
+    networks:
+      - default
+
+  worker-go:
+    build:
+      context: ./ai-planner-monorepo/services/worker-go
+      dockerfile: Dockerfile
+    container_name: ai_day_planner_worker
+    environment:
+      DATABASE_URL: postgresql://planner:planner@postgres/planner
+    depends_on:
+      api-python:
+        condition: service_healthy
+    networks:
+      - default
 
   web-platform:
     build:
@@ -26,7 +64,12 @@ services:
       - api-python
     ports:
       - "5173:5173"
-    volumes:
-      - ./ai-planner-monorepo:/workspace
-      - /workspace/node_modules
-      - /workspace/apps/web-platform/node_modules
+    networks:
+      - default
+
+volumes:
+  postgres_data:
+
+networks:
+  default:
+    name: ai-planner-network

@@ -5,6 +5,8 @@ from datetime import datetime
 
 import httpx
 
+from app.core.prompts import TASK_PARSER_SYSTEM_PROMPT
+
 
 GEMINI_MODEL = "gemini-2.0-flash"
 GEMINI_API_URL = (
@@ -20,28 +22,12 @@ class AIParseError(ValueError):
 def _build_prompt(text: str) -> str:
     now_iso = datetime.now().isoformat()
     return f"""
-You are a task extraction assistant for an AI planner.
-Return ONLY a valid JSON object.
-Do not wrap the response in markdown.
-Do not include explanations.
+{TASK_PARSER_SYSTEM_PROMPT}
 
 Current local datetime: {now_iso}
 
 Extract a task from the following user text:
 {text}
-
-Return JSON with exactly these keys:
-- title: string, required
-- description: string or null
-- priority: integer, where 1=low, 2=medium, 3=high
-- due_date: ISO 8601 datetime string or null
-
-Rules:
-- Infer priority from urgency words if possible, otherwise use 1.
-- Infer due_date from relative dates like tomorrow, tonight, next Monday if possible.
-- If date or time is unclear, use null.
-- title must be short, clear, and actionable.
-- description may contain extra useful details, otherwise null.
 """.strip()
 
 

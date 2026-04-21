@@ -13,6 +13,9 @@ interface TelegramWebApp {
   initDataUnsafe: unknown;
   ready: () => void;
   expand: () => void;
+  HapticFeedback?: {
+    impactOccurred: (style: "light" | "medium" | "heavy" | "rigid" | "soft") => void;
+  };
 }
 
 interface Window {
