@@ -7,6 +7,19 @@ from pydantic import BaseModel, Field
 load_dotenv()
 
 
+def _normalize_database_url(raw_value: str | None) -> str:
+    if not raw_value:
+        return "postgresql+asyncpg://user:password@localhost:5432/ai_planner"
+
+    if raw_value.startswith("postgresql+asyncpg://"):
+        return raw_value
+
+    if raw_value.startswith("postgresql://"):
+        return raw_value.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+    return raw_value
+
+
 def _parse_cors_origins(raw_value: str | None) -> list[str]:
     if not raw_value:
         return [
@@ -28,10 +41,7 @@ class Settings(BaseModel):
     app_name: str = Field(default_factory=lambda: os.getenv("APP_NAME", "AI Day Planner"))
     env: str = Field(default_factory=lambda: os.getenv("ENV", "development"))
     database_url: str = Field(
-        default_factory=lambda: os.getenv(
-            "DATABASE_URL",
-            "postgresql+asyncpg://user:password@localhost:5432/ai_planner",
-        ),
+        default_factory=lambda: _normalize_database_url(os.getenv("DATABASE_URL")),
     )
     scheduler_url: str = Field(
         default_factory=lambda: os.getenv(

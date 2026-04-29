@@ -35,7 +35,7 @@ async def get_current_user(
     if (
         x_telegram_init_data == "dev-mode-init-data"
         and settings.allow_dev_init_data_bypass
-        and settings.env == "development"
+        and settings.env in {"development", "staging"}
     ):
         user_payload = {
             "id": 7777777,

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import styled from "@emotion/styled";
 import { createTaskFromText } from "../api/tasks";
 import { Card, CardText, CardTitle } from "../components/Card";
@@ -76,6 +76,16 @@ const QuickForm = styled.form`
   gap: 12px;
 `;
 
+const InputRow = styled.div`
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
 const Input = styled.input`
   padding: 16px 18px;
   border: none;
@@ -93,8 +103,24 @@ const Button = styled.button`
   font-weight: 700;
 `;
 
+const VoiceButton = styled(Button)<{ $active: boolean }>`
+  background: ${(props) => (props.$active ? "#f97316" : "rgba(255, 255, 255, 0.12)")};
+  color: #f8fafc;
+  min-width: 164px;
+  transition: background 0.2s ease, opacity 0.2s ease;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.72;
+  }
+`;
+
 const Message = styled.div`
   color: #cbd5e1;
+`;
+
+const VoiceMessage = styled(Message)<{ tone: "neutral" | "error" }>`
+  color: ${(props) => (props.tone === "error" ? "#fca5a5" : "#cbd5e1")};
 `;
 
 const Columns = styled.div`
@@ -106,6 +132,32 @@ const Columns = styled.div`
     grid-template-columns: 1fr;
   }
 `;
+
+type VoiceInputState = "idle" | "listening" | "unsupported" | "error";
+
+function getSpeechRecognition(): SpeechRecognitionConstructor | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return window.SpeechRecognition ?? window.webkitSpeechRecognition ?? null;
+}
+
+function getSpeechErrorMessage(error: string): string {
+  if (error === "not-allowed" || error === "service-not-allowed") {
+    return "Доступ к микрофону запрещён. Разрешите микрофон в браузере и попробуйте снова.";
+  }
+
+  if (error === "audio-capture") {
+    return "Не удалось получить доступ к микрофону. Проверьте, что микрофон подключён и доступен.";
+  }
+
+  if (error === "no-speech") {
+    return "Речь не распознана. Попробуйте сказать команду ещё раз или используйте текстовый ввод.";
+  }
+
+  return "Не удалось распознать речь. Используйте текстовый ввод или попробуйте ещё раз.";
+}
 
 export function DashboardPage() {
   const {
@@ -122,6 +174,23 @@ export function DashboardPage() {
 
   const [text, setText] = useState("");
   const [message, setMessage] = useState("");
+  const [voiceState, setVoiceState] = useState<VoiceInputState>("idle");
+  const [voiceMessage, setVoiceMessage] = useState("");
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+
+  useEffect(() => {
+    if (!getSpeechRecognition()) {
+      setVoiceState("unsupported");
+      setVoiceMessage(
+        "Голосовой ввод не поддерживается в этом браузере. Используйте текстовый ввод.",
+      );
+    }
+
+    return () => {
+      recognitionRef.current?.stop();
+      recognitionRef.current = null;
+    };
+  }, []);
 
   const recentDoneTasks = useMemo(
     () => doneTasks.slice(0, 3),
@@ -153,6 +222,65 @@ export function DashboardPage() {
     } catch (err) {
       console.error(err);
       setMessage("Не удалось создать задачу");
+    }
+  }
+
+  function handleVoiceInput() {
+    const SpeechRecognitionCtor = getSpeechRecognition();
+
+    if (!SpeechRecognitionCtor) {
+      setVoiceState("unsupported");
+      setVoiceMessage(
+        "Голосовой ввод не поддерживается в этом браузере. Используйте текстовый ввод.",
+      );
+      return;
+    }
+
+    recognitionRef.current?.stop();
+
+    const recognition = new SpeechRecognitionCtor();
+    recognitionRef.current = recognition;
+    recognition.lang = "ru-RU";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      setVoiceState("listening");
+      setVoiceMessage("Идёт распознавание речи. Скажите команду обычной фразой.");
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0]?.[0]?.transcript?.trim() ?? "";
+
+      if (transcript) {
+        setText(transcript);
+        setVoiceMessage("Распознанный текст подставлен в поле. Проверьте его и нажмите создание задачи.");
+      } else {
+        setVoiceMessage("Речь не распознана. Используйте текстовый ввод или попробуйте ещё раз.");
+      }
+
+      setVoiceState("idle");
+    };
+
+    recognition.onerror = (event) => {
+      setVoiceState("error");
+      setVoiceMessage(getSpeechErrorMessage(event.error));
+    };
+
+    recognition.onend = () => {
+      if (recognitionRef.current === recognition) {
+        recognitionRef.current = null;
+      }
+
+      setVoiceState((currentState) => (currentState === "listening" ? "idle" : currentState));
+    };
+
+    try {
+      recognition.start();
+    } catch (error) {
+      console.error(error);
+      setVoiceState("error");
+      setVoiceMessage("Не удалось запустить голосовой ввод. Используйте текстовый ввод или попробуйте ещё раз.");
     }
   }
 
@@ -194,11 +322,28 @@ export function DashboardPage() {
         </CardText>
 
         <QuickForm onSubmit={handleSubmit}>
-          <Input
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            placeholder="добавь тренировку завтра в 19:00"
-          />
+          <InputRow>
+            <Input
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              placeholder="добавь тренировку завтра в 19:00"
+            />
+            <VoiceButton
+              type="button"
+              $active={voiceState === "listening"}
+              disabled={voiceState === "unsupported" || voiceState === "listening"}
+              onClick={handleVoiceInput}
+            >
+              {voiceState === "listening" ? "Слушаю..." : "Голосовой ввод"}
+            </VoiceButton>
+          </InputRow>
+          {voiceMessage && (
+            <VoiceMessage
+              tone={voiceState === "error" || voiceState === "unsupported" ? "error" : "neutral"}
+            >
+              {voiceMessage}
+            </VoiceMessage>
+          )}
           <Button type="submit">Создать задачу</Button>
           {message && <Message>{message}</Message>}
         </QuickForm>
