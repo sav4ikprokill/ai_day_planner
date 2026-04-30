@@ -78,6 +78,22 @@ docker compose up --build -d postgres api worker web-platform
 - Swagger: `http://127.0.0.1:8000/docs`
 - Health: `http://127.0.0.1:8000/health`
 
+## Hosted demo env
+
+- Vercel: `VITE_API_BASE_URL=https://ai-day-planner-fzhe.onrender.com`
+- Vercel: `VITE_DEMO_INIT_DATA=dev-mode-init-data`
+- Render API: `ENV=staging`
+- Render API: `ALLOW_DEV_INIT_DATA_BYPASS=true`
+- Render API: `CORS_ORIGINS=https://ai-day-planner-rouge.vercel.app`
+
+## Production-like env
+
+- Vercel: `VITE_API_BASE_URL=<production API URL>`
+- Vercel: не задавать `VITE_DEMO_INIT_DATA`
+- Render API: `ENV=production`
+- Render API: `ALLOW_DEV_INIT_DATA_BYPASS=false`
+- В этом режиме frontend должен брать реальный `Telegram.WebApp.initData`
+
 Важно:
 - `api:8000` работает только внутри Docker network.
 - В браузере на ноутбуке нужно использовать `127.0.0.1` или реальный LAN IP.

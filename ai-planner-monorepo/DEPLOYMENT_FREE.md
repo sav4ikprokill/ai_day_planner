@@ -17,6 +17,7 @@ This setup is intended for a free or near-free staging/demo environment for pre-
 
 ### Frontend
 - `VITE_API_BASE_URL=https://<render-api-url>`
+- `VITE_DEMO_INIT_DATA=dev-mode-init-data` only for hosted demo without real Telegram `initData`
 
 ### Backend
 - `DATABASE_URL`
@@ -31,6 +32,7 @@ Notes:
 - The API accepts both `postgresql+asyncpg://...` and Render-style `postgresql://...` values for `DATABASE_URL`.
 - Demo bypass uses a single shared demo user (`telegram_id=7777777`).
 - In production, bypass must stay disabled.
+- Frontend auth source order is: real `Telegram.WebApp.initData` -> `VITE_DEMO_INIT_DATA` -> no auth header.
 
 ### Worker
 - `DATABASE_URL`
@@ -47,7 +49,8 @@ Notes:
 3. Use the build command `pnpm build`.
 4. Use the output directory `dist`.
 5. Add the environment variable `VITE_API_BASE_URL=https://<render-api-url>`.
-6. Confirm auto-deploy is enabled for GitHub pushes. Every push to the tracked branch triggers a new frontend deployment automatically.
+6. For hosted demo only, add `VITE_DEMO_INIT_DATA=dev-mode-init-data`.
+7. Confirm auto-deploy is enabled for GitHub pushes. Every push to the tracked branch triggers a new frontend deployment automatically.
 
 If the Vercel project needs monorepo context from the repository root, set the root directory to `ai-planner-monorepo`, then use:
 - Install command: `pnpm install --frozen-lockfile`
@@ -79,8 +82,10 @@ If the Vercel project needs monorepo context from the repository root, set the r
 
 ## Demo mode warning
 - If the demo runs without Telegram authentication, you may use `ENV=staging` and `ALLOW_DEV_INIT_DATA_BYPASS=true`.
+- In the hosted demo frontend, set `VITE_DEMO_INIT_DATA=dev-mode-init-data`.
 - This bypass always authenticates as one shared demo user.
 - For production-like verification, set `ALLOW_DEV_INIT_DATA_BYPASS=false`.
+- For production-like verification, do not set `VITE_DEMO_INIT_DATA` in Vercel.
 - Do not enable bypass in production.
 
 ## Update workflow

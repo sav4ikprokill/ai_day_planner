@@ -20,14 +20,24 @@ export interface HabitCreatePayload {
   preferred_time: string;
 }
 
-export function createApiClient(baseUrl: string, getInitData: () => string): AxiosInstance {
+export function createApiClient(
+  baseUrl: string,
+  getInitData: () => string | null | undefined,
+): AxiosInstance {
   const client = axios.create({
     baseURL: baseUrl,
     timeout: 5000,
   });
 
   client.interceptors.request.use((config) => {
-    config.headers.set("X-Telegram-Init-Data", getInitData());
+    const initData = getInitData()?.trim();
+
+    if (initData) {
+      config.headers.set("X-Telegram-Init-Data", initData);
+    } else {
+      config.headers.delete("X-Telegram-Init-Data");
+    }
+
     return config;
   });
 
