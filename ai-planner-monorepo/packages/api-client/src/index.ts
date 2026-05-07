@@ -64,8 +64,12 @@ export async function createTask(
   return response.data;
 }
 
-export async function parseTask(client: AxiosInstance, text: string): Promise<TaskResponse> {
-  const response = await client.post<TaskResponse>("/tasks/parse", { text });
+export async function parseTask(
+  client: AxiosInstance,
+  text: string,
+  source: "text" | "voice" = "text",
+): Promise<TaskResponse> {
+  const response = await client.post<TaskResponse>("/tasks/parse", { text, source });
   return response.data;
 }
 

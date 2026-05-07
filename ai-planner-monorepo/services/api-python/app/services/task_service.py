@@ -146,7 +146,13 @@ class TaskService:
             await self.db.rollback()
             raise
 
-    async def create_from_text(self, text: str, user_id: int, user_email: str | None = None) -> Task:
+    async def create_from_text(
+        self,
+        text: str,
+        user_id: int,
+        user_email: str | None = None,
+        source: TaskSource = TaskSource.TEXT,
+    ) -> Task:
         parsed = parse_task_command(text)
 
         task_data = TaskCreate(
@@ -154,7 +160,7 @@ class TaskService:
             category=parsed.category,
             scheduled_at=parsed.scheduled_at,
             duration_minutes=DEFAULT_TASK_DURATION,
-            source=TaskSource.TEXT,
+            source=source,
         )
         return await self.create(task_data, user_id, user_email=user_email)
 

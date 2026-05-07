@@ -134,6 +134,7 @@ const Columns = styled.div`
 `;
 
 type VoiceInputState = "idle" | "listening" | "unsupported" | "error";
+type TaskInputSource = "text" | "voice";
 
 function getSpeechRecognition(): SpeechRecognitionConstructor | null {
   if (typeof window === "undefined") {
@@ -173,6 +174,7 @@ export function DashboardPage() {
   } = useTasks();
 
   const [text, setText] = useState("");
+  const [taskInputSource, setTaskInputSource] = useState<TaskInputSource>("text");
   const [message, setMessage] = useState("");
   const [voiceState, setVoiceState] = useState<VoiceInputState>("idle");
   const [voiceMessage, setVoiceMessage] = useState("");
@@ -215,9 +217,10 @@ export function DashboardPage() {
     }
 
     try {
-      const task = await createTaskFromText(text);
+      const task = await createTaskFromText(text, taskInputSource);
       setMessage(`Создано: ${task.title}`);
       setText("");
+      setTaskInputSource("text");
       await loadTasks();
     } catch (err) {
       console.error(err);
@@ -254,6 +257,7 @@ export function DashboardPage() {
 
       if (transcript) {
         setText(transcript);
+        setTaskInputSource("voice");
         setVoiceMessage("Распознанный текст подставлен в поле. Проверьте его и нажмите создание задачи.");
       } else {
         setVoiceMessage("Речь не распознана. Используйте текстовый ввод или попробуйте ещё раз.");
@@ -325,7 +329,10 @@ export function DashboardPage() {
           <InputRow>
             <Input
               value={text}
-              onChange={(event) => setText(event.target.value)}
+              onChange={(event) => {
+                setText(event.target.value);
+                setTaskInputSource("text");
+              }}
               placeholder="добавь тренировку завтра в 19:00"
             />
             <VoiceButton

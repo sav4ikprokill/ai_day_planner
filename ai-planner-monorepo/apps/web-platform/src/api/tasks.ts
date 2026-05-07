@@ -13,8 +13,8 @@ export async function fetchTasks() {
   return data.map((task) => TaskResponseSchema.parse(task));
 }
 
-export async function createTaskFromText(text: string) {
-  const task = await parseTask(apiClient, text);
+export async function createTaskFromText(text: string, source: "text" | "voice" = "text") {
+  const task = await parseTask(apiClient, text, source);
   return TaskResponseSchema.parse(task);
 }
 

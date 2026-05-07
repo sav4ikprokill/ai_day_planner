@@ -67,6 +67,15 @@ const StatusBadge = styled.span<{ status: TaskStatus }>`
   }};
 `;
 
+const SourceBadge = styled.span`
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(249, 115, 22, 0.18);
+  color: #fdba74;
+`;
+
 type Props = {
   tasks: TaskResponse[];
   emptyText?: string;
@@ -118,7 +127,10 @@ export function TaskList({
         <Item key={task.id}>
           <Top>
             <Title>{task.title}</Title>
-            <StatusBadge status={task.status}>{getStatusLabel(task.status)}</StatusBadge>
+            <Actions>
+              {task.source === "voice" && <SourceBadge>voice</SourceBadge>}
+              <StatusBadge status={task.status}>{getStatusLabel(task.status)}</StatusBadge>
+            </Actions>
           </Top>
 
           <Meta>

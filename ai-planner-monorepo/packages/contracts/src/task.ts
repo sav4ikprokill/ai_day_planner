@@ -30,6 +30,7 @@ export const HabitResponseSchema = z.object({
 
 export const TextCommandRequestSchema = z.object({
   text: z.string().min(1).max(500),
+  source: z.enum(["text", "voice"]).default("text"),
 });
 
 export const TaskStatusUpdateSchema = z.object({

@@ -1,7 +1,7 @@
 from datetime import datetime, time
 from enum import Enum
 
-from sqlalchemy import JSON, BigInteger, DateTime, Enum as SqlEnum, ForeignKey, Integer, String, Time, func
+from sqlalchemy import JSON, BigInteger, DateTime, Enum as SqlEnum, ForeignKey, Index, Integer, String, Time, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -51,6 +51,10 @@ class Task(Base, IdMixin, TimestampMixin):
     """Модель задачи."""
 
     __tablename__ = "tasks"
+    __table_args__ = (
+        Index("ix_tasks_user_id_status", "user_id", "status"),
+        Index("ix_tasks_user_id_scheduled_at", "user_id", "scheduled_at"),
+    )
 
     user_id: Mapped[int] = mapped_column(
         BigInteger,
@@ -85,6 +89,9 @@ class Habit(Base, IdMixin, TimestampMixin):
     """Модель привычки с рекомендуемым временем."""
 
     __tablename__ = "habits"
+    __table_args__ = (
+        UniqueConstraint("user_id", "category", name="uq_habits_user_id_category"),
+    )
 
     user_id: Mapped[int] = mapped_column(
         BigInteger,

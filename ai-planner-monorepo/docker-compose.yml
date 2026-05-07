@@ -19,10 +19,12 @@ services:
     build:
       context: ./services/api-python
       dockerfile: Dockerfile
-    env_file:
-      - ./services/api-python/.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://planner:planner@postgres/planner
+      APP_NAME: AI Day Planner
+      ENV: development
+      DATABASE_URL: postgresql+asyncpg://planner:planner@postgres:5432/planner
+      SCHEDULER_URL: http://scheduler-cpp:8080/optimize
+      ALLOW_DEV_INIT_DATA_BYPASS: "true"
       CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
     depends_on:
       postgres:
@@ -39,37 +41,36 @@ services:
     build:
       context: ./services/worker-go
       dockerfile: Dockerfile
-    env_file:
-      - ./services/worker-go/.env
     environment:
-      DATABASE_URL: postgresql://planner:planner@postgres/planner
+      DATABASE_URL: postgresql://planner:planner@postgres:5432/planner
     depends_on:
       api:
         condition: service_healthy
 
   bot-js:
+    profiles: ["telegram"]
     build:
       context: .
       dockerfile: ./services/bot-js/Dockerfile
-    env_file:
-      - ./services/bot-js/.env
     environment:
       API_BASE_URL: http://api:8000
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
     depends_on:
       api:
         condition: service_healthy
 
   web-platform:
     build:
-      context: ./apps/web-platform
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./apps/web-platform/Dockerfile
     environment:
-      VITE_API_BASE_URL: http://api:8000
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://127.0.0.1:8000}
+      VITE_DEMO_INIT_DATA: ${VITE_DEMO_INIT_DATA:-dev-mode-init-data}
     depends_on:
       api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:5173 || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:5173 >/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3

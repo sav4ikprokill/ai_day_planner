@@ -227,7 +227,7 @@ func processJob(job Job, logger *slog.Logger, smtpConfig SMTPConfig, botNotifyUR
 	payload := map[string]any{}
 	if len(job.Payload) > 0 {
 		if err := json.Unmarshal(job.Payload, &payload); err != nil {
-			return err
+			payload["raw"] = string(job.Payload)
 		}
 	}
 
