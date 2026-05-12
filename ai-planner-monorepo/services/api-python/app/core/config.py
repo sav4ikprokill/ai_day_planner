@@ -27,7 +27,13 @@ def _parse_cors_origins(raw_value: str | None) -> list[str]:
             "http://127.0.0.1:5173",
         ]
 
-    return [origin.strip() for origin in raw_value.split(",") if origin.strip()]
+    origins: list[str] = []
+    for origin in raw_value.split(","):
+        normalized_origin = origin.strip().rstrip("/")
+        if normalized_origin:
+            origins.append(normalized_origin)
+
+    return origins
 
 
 def _parse_bool(raw_value: str | None, default: bool = False) -> bool:

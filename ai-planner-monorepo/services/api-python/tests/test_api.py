@@ -7,6 +7,7 @@ from app.db.models import Habit, Task, TaskPriority, TaskSource, TaskStatus, Use
 
 
 DEV_HEADERS = {"X-Telegram-Init-Data": "dev-mode-init-data"}
+VERCEL_PREVIEW_ORIGIN = "https://ai-day-planner-r4ujbqbof-liss-projects-ee16082b.vercel.app"
 
 
 def override_current_user(app, user: User) -> None:
@@ -18,6 +19,21 @@ def override_current_user(app, user: User) -> None:
 
 def clear_current_user_override(app) -> None:
     app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest.mark.asyncio
+async def test_cors_preflight_allows_vercel_preview_origin(client):
+    response = await client.options(
+        "/tasks/",
+        headers={
+            "Origin": VERCEL_PREVIEW_ORIGIN,
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "X-Telegram-Init-Data",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == VERCEL_PREVIEW_ORIGIN
 
 
 @pytest.mark.asyncio
