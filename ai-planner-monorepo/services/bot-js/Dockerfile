@@ -2,13 +2,14 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-RUN corepack enable
+# Install pnpm directly instead of using corepack
+RUN npm install -g pnpm
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/contracts/package.json packages/contracts/package.json
 COPY services/bot-js/package.json services/bot-js/package.json
 
-RUN pnpm install --filter @ai-planner/bot-js... --frozen-lockfile
+RUN pnpm install --filter @ai-planner/bot-js... --frozen-lockfile --store-dir /pnpm-store --virtual-store-dir .pnpm --node-linker=hoisted
 
 COPY packages/contracts ./packages/contracts
 COPY services/bot-js ./services/bot-js

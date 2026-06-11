@@ -14,9 +14,7 @@ import java.util.Optional;
 public class JobRepositoryImpl implements JobRepositoryCustom {
 
     private static final String ACQUIRE_SQL = """
-        UPDATE jobs
-        SET status = 'processing', updated_at = NOW()
-        WHERE id = (
+        WITH job_to_process AS (
             SELECT id
             FROM jobs
             WHERE status = 'pending'
@@ -25,6 +23,9 @@ public class JobRepositoryImpl implements JobRepositoryCustom {
             FOR UPDATE SKIP LOCKED
             LIMIT 1
         )
+        UPDATE jobs
+        SET status = 'processing', updated_at = NOW()
+        WHERE id IN (SELECT id FROM job_to_process)
         RETURNING *
         """;
 

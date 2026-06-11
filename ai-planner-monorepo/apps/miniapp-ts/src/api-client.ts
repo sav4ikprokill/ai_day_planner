@@ -56,16 +56,47 @@ export function enableStandaloneDevAuth(name: string): void {
   );
 }
 
+function handleApiError(error: unknown, operation: string): never {
+  console.error(`API ${operation} failed:`, error);
+  
+  // Check for network/server errors
+  if (error instanceof Error) {
+    if (error.message.includes('fetch') || error.message.includes('network')) {
+      alert(`Ошибка сети при ${operation}. Проверьте подключение к интернету.`);
+    } else if (error.message.includes('500') || error.message.includes('503')) {
+      alert(`Сервер временно недоступен при ${operation}. Попробуйте позже.`);
+    } else {
+      alert(`Не удалось выполнить ${operation}. Попробуйте снова.`);
+    }
+  } else {
+    alert(`Неизвестная ошибка при ${operation}.`);
+  }
+  
+  throw error;
+}
+
 export async function fetchTasks(): Promise<TaskResponse[]> {
-  return getTasks(apiClient);
+  try {
+    return await getTasks(apiClient);
+  } catch (error) {
+    handleApiError(error, "загрузке задач");
+  }
 }
 
 export async function createTaskFromText(text: string): Promise<TaskResponse> {
-  return parseTask(apiClient, text);
+  try {
+    return await parseTask(apiClient, text);
+  } catch (error) {
+    handleApiError(error, "создании задачи");
+  }
 }
 
 export async function getOptimizedTasks(): Promise<OptimizedTask[]> {
-  return getOptimizedTasksRequest(apiClient);
+  try {
+    return await getOptimizedTasksRequest(apiClient);
+  } catch (error) {
+    handleApiError(error, "оптимизации задач");
+  }
 }
 
 export type { OptimizedTask };

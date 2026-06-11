@@ -21,8 +21,11 @@ jobs:
       - name: Install pnpm
         run: npm install -g pnpm
 
+      - name: Set pnpm store dir
+        run: pnpm config set store-dir ~/.pnpm-store
+
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile --shamefully-hoist
 
       - name: Typecheck web-platform
         run: pnpm --filter @ai-planner/web-platform typecheck

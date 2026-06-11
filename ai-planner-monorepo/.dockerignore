@@ -1,0 +1,13 @@
+node_modules
+**/node_modules
+.git
+.env
+.env.local
+dist
+.turbo
+*.db
+*.log
+*.sqlite
+__pycache__
+.vscode
+.DS_Store

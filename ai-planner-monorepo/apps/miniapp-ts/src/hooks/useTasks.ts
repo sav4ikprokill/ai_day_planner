@@ -21,8 +21,8 @@ export function useTasks(authenticated: boolean) {
       const data = await fetchTasks();
       setTasks(data);
     } catch (error) {
-      console.error(error);
-      setMessage("Сейчас не удалось загрузить задачи.");
+      console.error("Failed to load tasks:", error);
+      setMessage("Не удалось загрузить задачи. Попробуйте позже.");
     } finally {
       setLoading(false);
     }
@@ -33,7 +33,6 @@ export function useTasks(authenticated: boolean) {
       setLoading(false);
       return;
     }
-
     void loadTasks();
   }, [authenticated]);
 
@@ -49,10 +48,10 @@ export function useTasks(authenticated: boolean) {
       const task = await createTaskFromText(text.trim());
       setMessage(`Добавлено: ${task.title}`);
       setText("");
-      await loadTasks();
+      await loadTasks(); // Refresh tasks after creation
     } catch (error) {
-      console.error(error);
-      setMessage("Не удалось создать задачу.");
+      console.error("Failed to create task:", error);
+      setMessage("Не удалось создать задачу. Проверьте подключение.");
     }
   }
 
@@ -68,8 +67,8 @@ export function useTasks(authenticated: boolean) {
           : "Нет активных задач для оптимизации.",
       );
     } catch (error) {
-      console.error(error);
-      setMessage("Не удалось оптимизировать расписание.");
+      console.error("Failed to optimize tasks:", error);
+      setMessage("Не удалось оптимизировать расписание. Попробуйте позже.");
     } finally {
       setOptimizing(false);
     }
