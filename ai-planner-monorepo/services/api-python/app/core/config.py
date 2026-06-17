@@ -61,11 +61,16 @@ class Settings(BaseModel):
             default=False,
         ),
     )
+    secret_key: str = Field(default_factory=lambda: os.getenv("SECRET_KEY", "dev-secret-key-change-in-production"))
+    algorithm: str = "HS256"
     gemini_api_key: str | None = Field(default_factory=lambda: os.getenv("GEMINI_API_KEY"))
     telegram_bot_token: str | None = Field(default_factory=lambda: os.getenv("TELEGRAM_BOT_TOKEN"))
     cors_origins: list[str] = Field(
         default_factory=lambda: _parse_cors_origins(os.getenv("CORS_ORIGINS")),
+        
+    
     )
+    
 
 
 settings = Settings()
