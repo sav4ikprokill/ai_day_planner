@@ -1,15 +1,17 @@
 from collections.abc import AsyncGenerator
 from typing import Annotated
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status, Security
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.security import validate_telegram_data
+from app.core.security import validate_telegram_data, verify_token
 from app.db.models import User
 from app.db.session import SessionLocal
 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/guest", auto_error=False)
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     db = SessionLocal()
@@ -18,18 +20,27 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     finally:
         await db.close()
 
-
 DBSession = Annotated[AsyncSession, Depends(get_db)]
-
 
 async def get_current_user(
     session: DBSession,
+    token: str = Security(oauth2_scheme),
     x_telegram_init_data: str | None = Header(default=None, alias="X-Telegram-Init-Data"),
 ) -> User:
+    # 1. Attempt JWT Authentication
+    if token:
+        user_id = verify_token(token)
+        if user_id:
+            result = await session.scalars(select(User).where(User.telegram_id == int(user_id)))
+            user = result.first()
+            if user:
+                return user
+
+    # 2. Fallback to Telegram Authentication
     if not x_telegram_init_data:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="X-Telegram-Init-Data header is required",
+            detail="Authentication required (JWT or Telegram Init Data)",
         )
 
     if (
