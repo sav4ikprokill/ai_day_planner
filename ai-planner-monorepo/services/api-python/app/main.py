@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes_habits import router as habits_router
 from app.api.routes_tasks import router as tasks_router
+from app.api.routes_auth import router as auth_router
 from app.core.config import settings
 
 
@@ -26,7 +27,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
+app.include_router(auth_router, prefix="/api/v1")
 app.include_router(tasks_router)
 app.include_router(habits_router)
 
