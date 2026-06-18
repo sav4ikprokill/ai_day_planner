@@ -28,16 +28,12 @@ async def get_current_user(
     x_telegram_init_data: str | None = Header(default=None, alias="X-Telegram-Init-Data"),
 ) -> User:
     # 1. Attempt JWT Authentication
+        # 1. Attempt JWT Authentication
     if token:
         user_id = verify_token(token)
         if user_id:
-            # Try as telegram_id (int), otherwise look up by username (UUID guest_id)
-            try:
-                uid = int(user_id)
-                result = await session.scalars(select(User).where(User.telegram_id == uid))
-            except ValueError:
-                result = await session.scalars(select(User).where(User.username == user_id))
-            
+            uid = int(user_id)
+            result = await session.scalars(select(User).where(User.telegram_id == uid))
             user = result.first()
             if user:
                 return user
