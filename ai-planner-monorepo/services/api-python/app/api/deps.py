@@ -31,16 +31,22 @@ async def get_current_user(
     if token:
         user_id = verify_token(token)
         if user_id:
-            result = await session.scalars(select(User).where(User.telegram_id == int(user_id)))
+            # Try as telegram_id (int), otherwise look up by username (UUID guest_id)
+            try:
+                uid = int(user_id)
+                result = await session.scalars(select(User).where(User.telegram_id == uid))
+            except ValueError:
+                result = await session.scalars(select(User).where(User.username == user_id))
+            
             user = result.first()
             if user:
                 return user
 
-    # 2. Fallback to Telegram Authentication
+    # 2. Fallback to Telegram WebApp authentication
     if not x_telegram_init_data:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required (JWT or Telegram Init Data)",
+            detail="Authentication required",
         )
 
     if (
@@ -59,6 +65,7 @@ async def get_current_user(
             init_data=x_telegram_init_data,
             bot_token=settings.telegram_bot_token or "",
         )
+
     telegram_id = int(user_payload["id"])
 
     result = await session.scalars(
