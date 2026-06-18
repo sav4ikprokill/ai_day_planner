@@ -1,77 +1,64 @@
-import { createApiClient } from "@ai-planner/api-client";
+import axios from "axios";
 
-const DEFAULT_API_BASE_URL = "http://127.0.0.1:8000";
-const AUTH_MODE_STORAGE_KEY = "ai-planner-auth-mode";
+const API_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
+const TOKEN_KEY = "ai-planner-token";
 
-export type AuthMode = "demo" | "telegram";
+let tokenPromise: Promise<string> | null = null;
 
-function getTelegramInitDataFromWebApp(): string | null {
-  const telegramInitData = (
-    window as Window & {
-      Telegram?: {
-        WebApp?: {
-          initData?: string;
-        };
-      };
+async function fetchGuestToken(): Promise<string> {
+  const guestId = crypto.randomUUID();
+  const res = await fetch(`${API_URL}/api/v1/auth/guest`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ guest_id: guestId }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Auth error ${res.status}`);
+  }
+
+  const data = await res.json();
+  const token = data.access_token;
+  window.localStorage.setItem(TOKEN_KEY, token);
+  return token;
+}
+
+async function getAccessToken(): Promise<string> {
+  const cached = window.localStorage.getItem(TOKEN_KEY);
+  if (cached) return cached;
+
+  if (!tokenPromise) {
+    tokenPromise = fetchGuestToken().finally(() => {
+      tokenPromise = null;
+    });
+  }
+
+  return tokenPromise;
+}
+
+export const apiClient = axios.create({
+  baseURL: API_URL,
+});
+
+apiClient.interceptors.request.use(async (config) => {
+  const token = await getAccessToken();
+  config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const config = error.config;
+    if (error.response?.status === 401 && !config._retry) {
+      config._retry = true;
+      window.localStorage.removeItem(TOKEN_KEY);
+      const token = await getAccessToken();
+      config.headers.Authorization = `Bearer ${token}`;
+      return apiClient.request(config);
     }
-  ).Telegram?.WebApp?.initData;
-
-  return telegramInitData?.trim() || null;
-}
-
-export function getAuthMode(): AuthMode {
-  const storedMode = window.localStorage.getItem(AUTH_MODE_STORAGE_KEY);
-
-  if (storedMode === "demo" || storedMode === "telegram") {
-    return storedMode;
+    return Promise.reject(error);
   }
-
-  const telegramInitData = getTelegramInitDataFromWebApp();
-
-  if (telegramInitData) {
-    window.localStorage.setItem(AUTH_MODE_STORAGE_KEY, "telegram");
-    return "telegram";
-  }
-
-  window.localStorage.setItem(AUTH_MODE_STORAGE_KEY, "demo");
-  return "demo";
-}
-
-export function setAuthMode(mode: AuthMode): void {
-  window.localStorage.setItem(AUTH_MODE_STORAGE_KEY, mode);
-  window.location.reload();
-}
-
-export function resetAuthMode(): void {
-  window.localStorage.removeItem(AUTH_MODE_STORAGE_KEY);
-  window.location.reload();
-}
-
-export function getTelegramInitData(): string | null {
-  const mode = getAuthMode();
-
-  if (mode === "telegram") {
-    const telegramInitData = getTelegramInitDataFromWebApp();
-
-    if (telegramInitData) {
-      return telegramInitData;
-    }
-
-    console.warn("Telegram mode is selected, but Telegram WebApp initData is missing.");
-    return null;
-  }
-
-  const demoInitData = import.meta.env.VITE_DEMO_INIT_DATA?.trim();
-
-  if (demoInitData) {
-    return demoInitData;
-  }
-
-  console.warn("Demo mode is selected, but VITE_DEMO_INIT_DATA is not configured.");
-  return null;
-}
-
-export const apiClient = createApiClient(
-  import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL,
-  getTelegramInitData,
 );
+
+export { getAccessToken };
