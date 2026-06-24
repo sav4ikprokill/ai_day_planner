@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { TaskResponse, TaskStatus } from "@ai-planner/contracts";
 import { fetchTasks, updateTaskStatus } from "../api/tasks";
+import { useRealtimeTasks } from "./useRealtimeTasks";
 
 function parseDate(dateString: string | null): number | null {
   if (!dateString) {
@@ -78,6 +79,21 @@ export function useTasks() {
     }
   }, []);
 
+  const { connected } = useRealtimeTasks({
+    onTaskCreated: useCallback((task: TaskResponse) => {
+      setTasks((prev) => {
+        if (prev.some((t) => t.id === task.id)) return prev;
+        return sortTasks([...prev, task]);
+      });
+    }, []),
+    onTaskUpdated: useCallback((task: TaskResponse) => {
+      setTasks((prev) => sortTasks(prev.map((t) => (t.id === task.id ? task : t))));
+    }, []),
+    onTaskDeleted: useCallback((task: TaskResponse) => {
+      setTasks((prev) => prev.filter((t) => t.id !== task.id));
+    }, []),
+  });
+
   const changeStatus = useCallback(async (taskId: number, status: TaskStatus) => {
     try {
       const updatedTask = await updateTaskStatus(taskId, status);
@@ -128,6 +144,7 @@ export function useTasks() {
     upcomingTasks,
     loading,
     error,
+    connected,
     loadTasks,
     changeStatus,
   };

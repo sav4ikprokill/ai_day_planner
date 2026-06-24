@@ -17,6 +17,15 @@ const FilterButton = styled.button<{ active: boolean }>`
   border-radius: 12px;
   cursor: pointer;
   opacity: ${(props) => (props.active ? 1 : 0.65)};
+  font-size: 14px;
+  min-height: 44px;
+
+  @media (max-width: 480px) {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    padding: 10px 8px;
+  }
 `;
 
 const EmptyState = styled.div`

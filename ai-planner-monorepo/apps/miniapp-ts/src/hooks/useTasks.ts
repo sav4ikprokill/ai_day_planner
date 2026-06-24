@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { TaskResponse } from "@ai-planner/contracts";
 import {
   createTaskFromText,
@@ -6,6 +6,7 @@ import {
   getOptimizedTasks,
   type OptimizedTask,
 } from "../api-client";
+import { useRealtimeTasks } from "./useRealtimeTasks";
 
 export function useTasks(authenticated: boolean) {
   const [tasks, setTasks] = useState<TaskResponse[]>([]);
@@ -28,6 +29,22 @@ export function useTasks(authenticated: boolean) {
     }
   }
 
+  const { connected } = useRealtimeTasks({
+    enabled: authenticated,
+    onTaskCreated: useCallback((task: TaskResponse) => {
+      setTasks((prev) => {
+        if (prev.some((t) => t.id === task.id)) return prev;
+        return [...prev, task];
+      });
+    }, []),
+    onTaskUpdated: useCallback((task: TaskResponse) => {
+      setTasks((prev) => prev.map((t) => (t.id === task.id ? task : t)));
+    }, []),
+    onTaskDeleted: useCallback((task: TaskResponse) => {
+      setTasks((prev) => prev.filter((t) => t.id !== task.id));
+    }, []),
+  });
+
   useEffect(() => {
     if (!authenticated) {
       setLoading(false);
@@ -48,7 +65,7 @@ export function useTasks(authenticated: boolean) {
       const task = await createTaskFromText(text.trim());
       setMessage(`Добавлено: ${task.title}`);
       setText("");
-      await loadTasks(); // Refresh tasks after creation
+      await loadTasks();
     } catch (error) {
       console.error("Failed to create task:", error);
       setMessage("Не удалось создать задачу. Проверьте подключение.");
@@ -82,6 +99,7 @@ export function useTasks(authenticated: boolean) {
     loading,
     optimizing,
     message,
+    connected,
     loadTasks,
     submitTask,
     optimizeTasks,

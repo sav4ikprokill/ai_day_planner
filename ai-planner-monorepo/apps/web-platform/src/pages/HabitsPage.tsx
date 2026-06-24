@@ -7,10 +7,18 @@ import { Card, CardText, CardTitle } from "../components/Card";
 const Stack = styled.div`
   display: grid;
   gap: 20px;
+
+  @media (max-width: 768px) {
+    gap: 16px;
+  }
 `;
 
 const FormCard = styled(Card)`
   padding: 24px;
+
+  @media (max-width: 768px) {
+    padding: 16px;
+  }
 `;
 
 const Form = styled.form`
@@ -26,6 +34,8 @@ const Input = styled.input`
   outline: none;
   background: rgba(255, 255, 255, 0.92);
   color: #0f172a;
+  font-size: 16px;
+  min-height: 48px;
 `;
 
 const Button = styled.button`
@@ -34,6 +44,8 @@ const Button = styled.button`
   border-radius: 16px;
   cursor: pointer;
   font-weight: 700;
+  font-size: 15px;
+  min-height: 48px;
 `;
 
 const HabitList = styled.div`
@@ -45,6 +57,29 @@ const HabitItem = styled.div`
   padding: 16px;
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.05);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+
+  @media (max-width: 480px) {
+    padding: 14px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+`;
+
+const HabitCategory = styled.div`
+  font-weight: 600;
+  font-size: 15px;
+`;
+
+const HabitTime = styled.div`
+  color: #94a3b8;
+  font-size: 14px;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
 `;
 
 const EmptyState = styled.div`
@@ -119,6 +154,7 @@ export function HabitsPage() {
             value={preferredTime}
             onChange={(event) => setPreferredTime(event.target.value)}
             placeholder="19:00:00"
+            type="time"
           />
 
           <Button type="submit">Сохранить привычку</Button>
@@ -140,7 +176,8 @@ export function HabitsPage() {
             ) : (
               habits.map((habit) => (
                 <HabitItem key={habit.id}>
-                  {habit.category} → {habit.preferred_time}
+                  <HabitCategory>{habit.category}</HabitCategory>
+                  <HabitTime>{habit.preferred_time}</HabitTime>
                 </HabitItem>
               ))
             )}

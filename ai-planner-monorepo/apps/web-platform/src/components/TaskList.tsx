@@ -12,6 +12,11 @@ const Item = styled.div`
   background: rgba(255, 255, 255, 0.05);
   display: grid;
   gap: 10px;
+
+  @media (max-width: 480px) {
+    padding: 14px;
+    gap: 8px;
+  }
 `;
 
 const Top = styled.div`
@@ -25,11 +30,31 @@ const Top = styled.div`
 const Title = styled.div`
   font-size: 16px;
   font-weight: 600;
+  line-height: 1.3;
+
+  @media (max-width: 480px) {
+    font-size: 15px;
+  }
 `;
 
 const Meta = styled.div`
   color: #cbd5e1;
   font-size: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+
+  @media (max-width: 480px) {
+    font-size: 13px;
+    gap: 4px 10px;
+  }
+`;
+
+const MetaItem = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
 `;
 
 const Actions = styled.div`
@@ -43,6 +68,14 @@ const ActionButton = styled.button`
   border: none;
   border-radius: 12px;
   cursor: pointer;
+  font-size: 14px;
+  min-height: 44px;
+  min-width: 44px;
+
+  @media (max-width: 480px) {
+    flex: 1;
+    min-width: unset;
+  }
 `;
 
 const EmptyState = styled.div`
@@ -63,6 +96,23 @@ const StatusBadge = styled.span<{ status: TaskStatus }>`
   color: ${({ status }) => {
     if (status === "done") return "#86efac";
     if (status === "cancelled") return "#fca5a5";
+    return "#93c5fd";
+  }};
+`;
+
+const PriorityBadge = styled.span<{ priority: TaskResponse["priority"] }>`
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: ${({ priority }) => {
+    if (priority === "high") return "rgba(239, 68, 68, 0.2)";
+    if (priority === "low") return "rgba(148, 163, 184, 0.2)";
+    return "rgba(59, 130, 246, 0.15)";
+  }};
+  color: ${({ priority }) => {
+    if (priority === "high") return "#fca5a5";
+    if (priority === "low") return "#94a3b8";
     return "#93c5fd";
   }};
 `;
@@ -112,6 +162,22 @@ function getSourceLabel(source: TaskResponse["source"]): string {
   return "текст";
 }
 
+function formatScheduledAt(dateString: string | null): string {
+  if (!dateString) return "без времени";
+
+  const date = new Date(dateString);
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  const isTomorrow = new Date(now.getTime() + 86400000).toDateString() === date.toDateString();
+
+  const time = date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+
+  if (isToday) return `сегодня ${time}`;
+  if (isTomorrow) return `завтра ${time}`;
+
+  return date.toLocaleDateString("ru-RU", { day: "numeric", month: "short" }) + ` ${time}`;
+}
+
 export function TaskList({
   tasks,
   emptyText = "Задач пока нет.",
@@ -129,12 +195,15 @@ export function TaskList({
             <Title>{task.title}</Title>
             <Actions>
               {task.source === "voice" && <SourceBadge>voice</SourceBadge>}
+              <PriorityBadge priority={task.priority}>{getPriorityLabel(task.priority)}</PriorityBadge>
               <StatusBadge status={task.status}>{getStatusLabel(task.status)}</StatusBadge>
             </Actions>
           </Top>
 
           <Meta>
-            категория: {task.category} | время: {task.scheduled_at ?? "без времени"} | приоритет: {getPriorityLabel(task.priority)} | источник: {getSourceLabel(task.source)}
+            <MetaItem>{task.category}</MetaItem>
+            <MetaItem>{formatScheduledAt(task.scheduled_at)}</MetaItem>
+            <MetaItem>{getSourceLabel(task.source)}</MetaItem>
           </Meta>
 
           {onStatusChange && (

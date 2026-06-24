@@ -8,16 +8,28 @@ import { useTasks } from "../hooks/useTasks";
 const Stack = styled.div`
   display: grid;
   gap: 20px;
+
+  @media (max-width: 768px) {
+    gap: 16px;
+  }
 `;
 
 const Hero = styled(Card)`
   padding: 32px;
+
+  @media (max-width: 768px) {
+    padding: 20px;
+  }
 `;
 
 const Eyebrow = styled.div`
   color: #94a3b8;
   font-size: 14px;
   margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 `;
 
 const HeroTitle = styled.h1`
@@ -26,8 +38,8 @@ const HeroTitle = styled.h1`
   line-height: 1.05;
   letter-spacing: -0.05em;
 
-  @media (max-width: 700px) {
-    font-size: 32px;
+  @media (max-width: 768px) {
+    font-size: 28px;
   }
 `;
 
@@ -36,6 +48,11 @@ const HeroText = styled.p`
   max-width: 720px;
   color: #cbd5e1;
   line-height: 1.6;
+
+  @media (max-width: 768px) {
+    font-size: 14px;
+    margin-top: 10px;
+  }
 `;
 
 const StatsGrid = styled.div`
@@ -47,28 +64,47 @@ const StatsGrid = styled.div`
     grid-template-columns: repeat(2, 1fr);
   }
 
-  @media (max-width: 640px) {
-    grid-template-columns: 1fr;
+  @media (max-width: 480px) {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
   }
 `;
 
 const StatCard = styled(Card)`
   padding: 22px;
+
+  @media (max-width: 480px) {
+    padding: 16px;
+  }
 `;
 
 const StatValue = styled.div`
   font-size: 34px;
   font-weight: 700;
   letter-spacing: -0.04em;
+
+  @media (max-width: 480px) {
+    font-size: 28px;
+  }
 `;
 
 const StatLabel = styled.div`
   margin-top: 8px;
   color: #94a3b8;
+  font-size: 14px;
+
+  @media (max-width: 480px) {
+    font-size: 12px;
+    margin-top: 4px;
+  }
 `;
 
 const QuickAddCard = styled(Card)`
   padding: 24px;
+
+  @media (max-width: 768px) {
+    padding: 16px;
+  }
 `;
 
 const QuickForm = styled.form`
@@ -93,6 +129,11 @@ const Input = styled.input`
   outline: none;
   background: rgba(255, 255, 255, 0.92);
   color: #0f172a;
+  font-size: 16px;
+
+  @media (max-width: 640px) {
+    padding: 14px 16px;
+  }
 `;
 
 const Button = styled.button`
@@ -101,6 +142,12 @@ const Button = styled.button`
   border-radius: 16px;
   cursor: pointer;
   font-weight: 700;
+  font-size: 15px;
+  min-height: 48px;
+
+  @media (max-width: 640px) {
+    padding: 16px;
+  }
 `;
 
 const VoiceButton = styled(Button)<{ $active: boolean }>`
@@ -112,6 +159,10 @@ const VoiceButton = styled(Button)<{ $active: boolean }>`
   &:disabled {
     cursor: not-allowed;
     opacity: 0.72;
+  }
+
+  @media (max-width: 640px) {
+    min-width: unset;
   }
 `;
 
@@ -130,6 +181,27 @@ const Columns = styled.div`
 
   @media (max-width: 900px) {
     grid-template-columns: 1fr;
+  }
+`;
+
+const ConnectionStatus = styled.div<{ connected: boolean }>`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: ${({ connected }) =>
+    connected ? "rgba(34, 197, 94, 0.15)" : "rgba(239, 68, 68, 0.15)"};
+  color: ${({ connected }) => (connected ? "#86efac" : "#fca5a5")};
+
+  &::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: ${({ connected }) => (connected ? "#22c55e" : "#ef4444")};
   }
 `;
 
@@ -169,6 +241,7 @@ export function DashboardPage() {
     upcomingTasks,
     loading,
     error,
+    connected,
     changeStatus,
     loadTasks,
   } = useTasks();
@@ -291,7 +364,12 @@ export function DashboardPage() {
   return (
     <Stack>
       <Hero>
-        <Eyebrow>Платформа AI Planner</Eyebrow>
+        <Eyebrow>
+          Платформа AI Planner
+          <ConnectionStatus connected={connected}>
+            {connected ? "Real-time" : "Offline"}
+          </ConnectionStatus>
+        </Eyebrow>
         <HeroTitle>Спокойный фокус на дне, а не на хаосе.</HeroTitle>
         <HeroText>
           Главный экран показывает, что важно сейчас: общий ритм задач, быстрый
